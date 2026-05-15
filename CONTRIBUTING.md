@@ -85,8 +85,7 @@ Before requesting review:
 - [ ] If architectural: an `Accepted` ADR exists
 - [ ] New behavior is covered by tests
 - [ ] Docs updated where user-visible (README, ARCHITECTURE, ROADMAP, etc.)
-- [ ] No new AGPL/SSPL/GPL transitive dependencies (ADR required if so)
-- [ ] No "Generated with Claude" or AI-attribution footers anywhere
+- [ ] No new AGPL/SSPL/GPL transitive dependencies
 
 ## Code style
 
