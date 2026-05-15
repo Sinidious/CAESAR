@@ -1,0 +1,42 @@
+name: ADR proposal
+description: Propose a new architecture decision record.
+title: "adr: <short title>"
+labels: ["adr", "discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose an ADR before opening the PR that
+        adds it under `docs/adr/`. Discussion in the issue keeps the PR
+        focused on the final wording.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What forces are at play? Why is this decision needed now?
+    validations:
+      required: true
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: Proposed decision
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: At least one alternative — usually "do nothing" qualifies.
+    validations:
+      required: true
+
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences
+      description: Positive, negative, and neutral. What gets harder?
+    validations:
+      required: true

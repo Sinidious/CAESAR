@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a new feature or capability.
+title: "feat: <short summary>"
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests that introduce a new module, external dependency,
+        or architectural pattern will need an accepted ADR before
+        implementation lands. Use this template to propose the idea —
+        if it's accepted, you (or a maintainer) will open an ADR.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Focus on the user-visible outcome, not a specific implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: High-level sketch. Implementation details belong in an ADR.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What did you reject, and why?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links, screenshots, related issues, prior art.

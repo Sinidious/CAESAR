@@ -1,0 +1,19 @@
+# CODEOWNERS for CAESAR.
+# Every change to main requires review from a CODEOWNER (enforced via
+# branch protection). Until we have more maintainers, that is @sinidious.
+# Order matters: later patterns override earlier ones.
+
+* @sinidious
+
+# Architecture decisions and the working notes need a maintainer review.
+/docs/adr/        @sinidious
+/CLAUDE.md        @sinidious
+/CONTRIBUTING.md  @sinidious
+/CLA.md           @sinidious
+/LICENSE          @sinidious
+/NOTICE           @sinidious
+
+# Anything that controls CI, releases, or branch policy.
+/.github/         @sinidious
+/release-please-config.json    @sinidious
+/.release-please-manifest.json @sinidious
