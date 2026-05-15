@@ -1,0 +1,62 @@
+name: pr-lint
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+  contents: read
+
+concurrency:
+  group: pr-lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  conventional-title:
+    name: conventional PR title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" must start with a lowercase letter
+            (Conventional Commits style).
+
+  branch-name:
+    name: branch name prefix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          # Allowed: feature/*, fix/*, docs/*, chore/*, refactor/*, test/*,
+          # ci/*, build/*, perf/*, release/v*, claude/*, dependabot/*,
+          # renovate/*. Anything else is rejected.
+          pattern='^(feature|fix|docs|chore|refactor|test|ci|build|perf|release|claude|dependabot|renovate)/.+'
+          if [[ ! "$BRANCH" =~ $pattern ]]; then
+            echo "::error::Branch name '$BRANCH' does not match required prefix."
+            echo "Use one of: feature/, fix/, docs/, chore/, refactor/, test/, ci/, build/, perf/, release/v*."
+            echo "See CONTRIBUTING.md for the full convention."
+            exit 1
+          fi
+          echo "Branch name '$BRANCH' OK."
