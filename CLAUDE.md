@@ -117,9 +117,34 @@ just setup
 - `typecheck`
 - `test (3.11)`
 - `test (3.12)`
+- `dependency-review`
+- `conventional PR title`
+- `branch name prefix`
 - `CLA Assistant Lite`
 
 Match these check names exactly when adding or renaming workflows.
+
+### Merge and review flow
+
+The repo is wired so a maintainer only has to **approve** — everything
+else is automated:
+
+- All PRs squash-merge into `main` (merge commits and rebase merges are
+  disabled at the repo level). The squashed commit subject is the PR
+  title, which release-please reads for Conventional Commits.
+- The `auto-merge-on-approval` workflow enables GitHub auto-merge as
+  soon as any review with state `approved` is submitted, so once the
+  required checks turn green the PR merges itself.
+- The `dependabot-auto-merge` workflow auto-approves and auto-merges
+  Dependabot patch and minor version bumps. Major version bumps and
+  security alerts still wait for a maintainer's approval (and then go
+  through the same auto-merge-on-approval path).
+- release-please's own release PR is never auto-approved; bumping a
+  release is a deliberate act.
+
+If a PR is stuck "waiting for review" with auto-merge enabled, it
+almost always means a required check is failing or pending — open the
+PR's Checks tab.
 
 ## Licensing reminders
 
