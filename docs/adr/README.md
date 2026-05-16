@@ -41,3 +41,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0013 | [Policy engine guards real-world side effects](0013-policy-engine.md)     | Accepted |
 | 0014 | [Trunk-based development with release branches as needed](0014-trunk-based-development.md) | Accepted |
 | 0015 | [Ruff + mypy + pytest as the Python toolchain](0015-python-toolchain.md)  | Accepted |
+| 0016 | [Repository and package layout](0016-package-layout.md)                   | Accepted |
