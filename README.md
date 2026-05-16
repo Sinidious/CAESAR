@@ -6,7 +6,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sinidious/caesar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sinidious/caesar/actions/workflows/ci.yml/badge.svg"/></a>
+  <a href="https://github.com/sinidious/caesar/actions/workflows/lint.yml"><img alt="lint" src="https://github.com/sinidious/caesar/actions/workflows/lint.yml/badge.svg?branch=main"/></a>
+  <a href="https://github.com/sinidious/caesar/actions/workflows/typecheck.yml"><img alt="typecheck" src="https://github.com/sinidious/caesar/actions/workflows/typecheck.yml/badge.svg?branch=main"/></a>
+  <a href="https://github.com/sinidious/caesar/actions/workflows/test.yml"><img alt="test" src="https://github.com/sinidious/caesar/actions/workflows/test.yml/badge.svg?branch=main"/></a>
   <a href="LICENSE"><img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/license-PolyForm--NC--1.0.0-blue.svg"/></a>
   <a href="CLA.md"><img alt="CLA required" src="https://img.shields.io/badge/CLA-required-orange.svg"/></a>
   <a href="docs/ROADMAP.md"><img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-red.svg"/></a>

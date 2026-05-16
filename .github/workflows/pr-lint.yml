@@ -55,10 +55,13 @@ jobs:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          # Allowed: feature/*, fix/*, docs/*, chore/*, refactor/*, test/*,
-          # ci/*, build/*, perf/*, release/v*, claude/*, dependabot/*,
-          # renovate/*. Anything else is rejected.
-          pattern='^(feature|fix|docs|chore|refactor|test|ci|build|perf|release|claude|dependabot|renovate)/.+'
+          # Allowed prefixes with `/` separator:
+          #   feature/, fix/, docs/, chore/, refactor/, test/, ci/,
+          #   build/, perf/, release/v*, claude/, dependabot/,
+          #   renovate/.
+          # Also allowed (bot-controlled branch names with `--` separator):
+          #   release-please--*  (release-please action's standard format)
+          pattern='^((feature|fix|docs|chore|refactor|test|ci|build|perf|release|claude|dependabot|renovate)/.+|release-please--.+)'
           if [[ ! "$BRANCH" =~ $pattern ]]; then
             echo "::error::Branch name '$BRANCH' does not match required prefix."
             echo "Use one of: feature/, fix/, docs/, chore/, refactor/, test/, ci/, build/, perf/, release/v*."
