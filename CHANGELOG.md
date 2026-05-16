@@ -9,6 +9,20 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from
 [Conventional Commits](https://www.conventionalcommits.org) on `main`.
 
+## [0.1.1](https://github.com/Sinidious/CAESAR/compare/v0.1.0...v0.1.1) (2026-05-16)
+
+
+### Documentation
+
+* **adr:** record configuration loader and layered sources (ADR-0017) ([#10](https://github.com/Sinidious/CAESAR/issues/10)) ([de04180](https://github.com/Sinidious/CAESAR/commit/de04180c5d68008d81cb298fcf2f88a242e2f819))
+* **adr:** record SQLite persistence via SQLAlchemy Core and Alembic (ADR-0019) ([#13](https://github.com/Sinidious/CAESAR/issues/13)) ([93f95dd](https://github.com/Sinidious/CAESAR/commit/93f95ddc00310d322ca4c8ebeb739907d33341d2))
+* **adr:** record structured logging with structlog (ADR-0018) ([#12](https://github.com/Sinidious/CAESAR/issues/12)) ([e6baa2f](https://github.com/Sinidious/CAESAR/commit/e6baa2fefb813d823ae6b1737162d7e9cc4024ab))
+
+
+### Build System
+
+* **deps-dev:** bump the dev-dependencies group across 1 directory with 8 updates ([#8](https://github.com/Sinidious/CAESAR/issues/8)) ([3c7769b](https://github.com/Sinidious/CAESAR/commit/3c7769b87a027ddddc98f2e7d910fc7121290594))
+
 ## 0.1.0 (2026-05-16)
 
 
