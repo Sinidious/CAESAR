@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import Any
 
+import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -12,7 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from caesar.config import CaesarSettings, DatabaseSettings, LLMSettings, LogSettings
 from caesar.db.engine import create_engine
 from caesar.db.migrate import upgrade_to_head
+from caesar.ha.client import HAClient
+from caesar.ha.models import ServiceCall
 from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway
+from caesar.policy.engine import Policy, PolicyDecision
+from tests.fakeha import VALID_TOKEN, make_rest_app
 
 
 class FakeGateway:
@@ -93,17 +99,97 @@ def gateway_protocol(fake_gateway: FakeGateway) -> LLMGateway:
     return fake_gateway
 
 
+class AllowAllPolicy:
+    """Permissive policy used in route tests that exercise the happy path."""
+
+    def evaluate(self, call: ServiceCall) -> PolicyDecision:
+        return PolicyDecision(allowed=True, reason="test: allow-all")
+
+
+@pytest.fixture
+def allow_all_policy() -> Policy:
+    return AllowAllPolicy()
+
+
+@pytest.fixture
+def ha_service_calls() -> list[dict[str, Any]]:
+    """Captures every service call POSTed at the mock HA app."""
+
+    return []
+
+
+@pytest.fixture
+def mock_ha_states() -> dict[str, dict[str, Any]]:
+    return {
+        "light.kitchen": {
+            "entity_id": "light.kitchen",
+            "state": "off",
+            "attributes": {"friendly_name": "Kitchen Light"},
+            "last_changed": "2026-05-16T00:00:00+00:00",
+            "last_updated": "2026-05-16T00:00:00+00:00",
+        },
+    }
+
+
+@pytest.fixture
+async def mock_ha(
+    mock_ha_states: dict[str, dict[str, Any]],
+    ha_service_calls: list[dict[str, Any]],
+) -> AsyncIterator[HAClient]:
+    """An ``HAClient`` wired to an in-process FastAPI HA mock."""
+
+    ha_app = make_rest_app(states=mock_ha_states, record=ha_service_calls)
+    transport = httpx.ASGITransport(app=ha_app)
+    http = httpx.AsyncClient(
+        base_url="http://ha.test",
+        headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        transport=transport,
+    )
+    client = HAClient(url="http://ha.test", token=VALID_TOKEN, http=http)
+    try:
+        yield client
+    finally:
+        await client.aclose()
+
+
 @pytest.fixture
 async def client(
     settings: CaesarSettings,
     engine: AsyncEngine,
     fake_gateway: FakeGateway,
 ) -> AsyncIterator[AsyncClient]:
-    """An httpx client speaking to a fully-wired Praetor app."""
+    """An httpx client speaking to a Praetor app with HA *unconfigured*."""
 
     from caesar.praetor.app import create_app
 
     app = create_app(settings=settings, gateway=fake_gateway, engine=engine)
+    transport = ASGITransport(app=app)
+    async with (
+        AsyncClient(transport=transport, base_url="http://test") as ac,
+        app.router.lifespan_context(app),
+    ):
+        yield ac
+
+
+@pytest.fixture
+async def client_with_ha(
+    settings: CaesarSettings,
+    engine: AsyncEngine,
+    fake_gateway: FakeGateway,
+    mock_ha: HAClient,
+    allow_all_policy: Policy,
+) -> AsyncIterator[AsyncClient]:
+    """An httpx client speaking to a Praetor app with HA *configured*."""
+
+    from caesar.praetor.app import create_app
+
+    app = create_app(
+        settings=settings,
+        gateway=fake_gateway,
+        engine=engine,
+        ha=mock_ha,
+        policy=allow_all_policy,
+    )
     transport = ASGITransport(app=app)
     async with (
         AsyncClient(transport=transport, base_url="http://test") as ac,

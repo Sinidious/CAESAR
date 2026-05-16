@@ -7,6 +7,7 @@ fields use a ``__`` delimiter, so ``CAESAR_DB__URL`` sets ``db.url``.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, SecretStr
@@ -49,6 +50,31 @@ class ServerSettings(BaseModel):
     port: int = 8000
 
 
+class HASettings(BaseModel):
+    """Home Assistant bridge configuration (ADR-0007).
+
+    ``url`` and ``token`` are both required at runtime to actually
+    talk to HA; if either is missing the bridge isn't constructed and
+    the device routes return 503.
+    """
+
+    url: str | None = None
+    token: SecretStr | None = None
+    timeout_seconds: float = 10.0
+    verify_ssl: bool = True
+
+
+class PolicySettings(BaseModel):
+    """Policy engine configuration (ADR-0013).
+
+    ``rules_path`` points at a YAML file describing the allow-list.
+    When unset, CAESAR loads the deny-all stub policy and refuses every
+    service call.
+    """
+
+    rules_path: Path | None = None
+
+
 class CaesarSettings(BaseSettings):
     """Top-level settings; all subsystems read through this."""
 
@@ -64,6 +90,8 @@ class CaesarSettings(BaseSettings):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     log: LogSettings = Field(default_factory=LogSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
+    ha: HASettings = Field(default_factory=HASettings)
+    policy: PolicySettings = Field(default_factory=PolicySettings)
 
 
 @lru_cache(maxsize=1)
