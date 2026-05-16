@@ -33,9 +33,11 @@ jobs:
             Thanks for your pull request! Before we can merge, we need every
             contributor to sign the [CAESAR CLA](https://github.com/sinidious/caesar/blob/main/CLA.md).
             Reply with the comment below to record your signature:
-          # lock-pullrequest-aftermerge intentionally NOT set. It locks
-          # merged PRs, which blocks release-please from posting its
-          # post-merge "release created" comment on its own merged
-          # release PR — the workflow then fails with 403 / "issue is
-          # locked". The lock-on-merge feature is also rarely useful on
-          # a small project.
+          # The action defaults this to `true`, which locks every PR
+          # the moment it merges and blocks release-please from
+          # posting its post-merge "release created" comment on its
+          # own release PR (the workflow then fails with 403 / "issue
+          # is locked"). Setting it explicitly to false. The
+          # lock-on-merge feature is also rarely useful on a small
+          # project.
+          lock-pullrequest-aftermerge: false
