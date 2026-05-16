@@ -1,6 +1,8 @@
 # 0019 — SQLite persistence via SQLAlchemy Core and Alembic
 
-- Status: Accepted
+- Status: Accepted (amended 2026-05-16: migrations live inside the
+  package at `caesar/db/migrations/` rather than at the repo root, so
+  they ship with the wheel and can be invoked from a packaged install)
 - Date: 2026-05-16
 - Deciders: @sinidious
 
@@ -77,9 +79,11 @@ Specifically:
   first query on each new connection.
 - **Foreign keys on.** `PRAGMA foreign_keys=ON` in the same listener;
   SQLite ships with them off by default and that is a footgun.
-- **Migrations live at `migrations/`** at the repo root (not under
-  `src/`, since migrations are not shipped in the wheel). Alembic's
-  `env.py` reads the database URL from `caesar.config.Settings`
+- **Migrations live at `caesar/db/migrations/`** inside the package so
+  they ship with the wheel and can be invoked from a packaged install
+  via `caesar praetor migrate`. The package's `pyproject.toml`
+  includes the migrations directory in the wheel. Alembic's `env.py`
+  reads the database URL from `caesar.config.Settings`
   ([ADR-0017](0017-configuration.md)), so the same TOML/env config
   that runs the app runs the migrations.
 - **One migration per logical change**, each carrying its own SQL.

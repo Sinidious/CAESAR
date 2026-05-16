@@ -15,7 +15,7 @@ see what we're building?
 - [x] CI: lint, typecheck, test (3.11 + 3.12), CLA Assistant Lite.
 - [x] Conventional Commits + release-please wired to `main`.
 - [x] First batch of architecture ADRs.
-- [ ] Branch protection enabled on `main`.
+- [x] Branch protection enabled on `main` (rulesets + auto-merge flow).
 
 ## v0.1 — Praetor heartbeat
 
