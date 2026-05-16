@@ -35,10 +35,16 @@ jobs:
             chore
             revert
           requireScope: false
-          subjectPattern: ^(?![A-Z]).+$
+          # No subjectPattern: Conventional Commits does not mandate a
+          # lowercase subject. This project's titles frequently begin
+          # with proper nouns (FastAPI, SQLite, NATS, GitHub, JSON),
+          # which the previous `^(?![A-Z]).+$` pattern false-rejected.
+          # See PR #13 for the original failure case.
+          disallowScopes: |
+            release
           subjectPatternError: |
-            The subject "{subject}" must start with a lowercase letter
-            (Conventional Commits style).
+            The subject "{subject}" failed validation. Conventional
+            Commits format: `<type>(<optional scope>): <subject>`.
 
   branch-name:
     name: branch name prefix
