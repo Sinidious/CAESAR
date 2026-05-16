@@ -4,6 +4,20 @@ App code calls the :class:`LLMGateway` protocol; provider modules
 (currently just :mod:`caesar.llm.anthropic`) implement it.
 """
 
-from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway
+from caesar.llm.gateway import (
+    ChatMessage,
+    ChatResponse,
+    LLMGateway,
+    ToolDefinition,
+    ToolResult,
+    ToolUse,
+)
 
-__all__ = ["ChatMessage", "ChatResponse", "LLMGateway"]
+__all__ = [
+    "ChatMessage",
+    "ChatResponse",
+    "LLMGateway",
+    "ToolDefinition",
+    "ToolResult",
+    "ToolUse",
+]

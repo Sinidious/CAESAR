@@ -1,22 +1,258 @@
 from __future__ import annotations
 
-from caesar.llm.gateway import ChatMessage
-from caesar.praetor.graph import build_echo_graph
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from caesar.db.audit import AuditLogger
+from caesar.ha.client import HAClient
+from caesar.llm.gateway import ChatMessage, ChatResponse, ToolUse
+from caesar.policy.allowlist import AllowlistPolicy
+from caesar.policy.engine import DenyAllPolicy, Policy
+from caesar.policy.yaml_loader import RulesConfig
+from caesar.praetor.graph import build_brain_graph
 from tests.conftest import FakeGateway
 
 
-async def test_graph_invokes_gateway_and_returns_response(
-    fake_gateway: FakeGateway,
-):
-    graph = build_echo_graph(fake_gateway)
-    out = await graph.ainvoke(
+def _allow_light_policy() -> Policy:
+    return AllowlistPolicy(
+        RulesConfig(version=1, allowed_services=["light.turn_on", "light.turn_off"])
+    )
+
+
+async def test_no_tool_use_returns_final_text(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    audit = AuditLogger(engine)
+    graph = build_brain_graph(gateway=fake_gateway, ha=None, policy=DenyAllPolicy(), audit=audit)
+    state = await graph.ainvoke(
         {
-            "messages": [ChatMessage(role="user", content="hi")],
-            "system": "You are CAESAR.",
+            "messages": [ChatMessage(role="user", content="hello")],
+            "system": "test",
             "model": "fake-model",
-            "decision_id": "d-test",
+            "decision_id": "d-1",
+            "iteration": 0,
         }
     )
-    assert out["response"].content == "hello back"
-    assert fake_gateway.calls[0]["system"] == "You are CAESAR."
-    assert fake_gateway.calls[0]["model"] == "fake-model"
+    assert state["response"].content == "hello back"
+    # When HA is None, the gateway is called with tools=None.
+    assert fake_gateway.calls[0]["tools"] is None
+
+
+async def test_single_tool_use_dispatches_and_loops(
+    fake_gateway: FakeGateway,
+    engine: AsyncEngine,
+    mock_ha: HAClient,
+    ha_service_calls: list[dict[str, Any]],
+) -> None:
+    audit = AuditLogger(engine)
+
+    # First call: model emits a tool_use. Second call: model finishes.
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[
+                ToolUse(
+                    id="tu_1",
+                    name="call_service",
+                    input={"domain": "light", "service": "turn_on"},
+                )
+            ],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(
+            content="Kitchen light is on.",
+            model="fake-model",
+            input_tokens=3,
+            output_tokens=4,
+        )
+    )
+
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=mock_ha,
+        policy=_allow_light_policy(),
+        audit=audit,
+    )
+    state = await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="turn on the light")],
+            "system": "test",
+            "model": "fake-model",
+            "decision_id": "d-tool",
+            "iteration": 0,
+        }
+    )
+    assert state["response"].content == "Kitchen light is on."
+    assert ha_service_calls[0]["domain"] == "light"
+    # The gateway saw tools on each invocation (HA is configured).
+    assert fake_gateway.calls[0]["tools"] is not None
+    # Second call's last message should be a tool_result.
+    second_messages = fake_gateway.calls[1]["messages"]
+    assert isinstance(second_messages, list)
+    assert second_messages[-1].tool_results[0].tool_use_id == "tu_1"
+
+
+async def test_denied_tool_yields_error_result(
+    fake_gateway: FakeGateway, engine: AsyncEngine, mock_ha: HAClient
+) -> None:
+    audit = AuditLogger(engine)
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[
+                ToolUse(
+                    id="tu_2",
+                    name="call_service",
+                    input={"domain": "lock", "service": "unlock"},
+                )
+            ],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(
+            content="Sorry, I can't unlock that.",
+            model="fake-model",
+            input_tokens=3,
+            output_tokens=4,
+        )
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=mock_ha,
+        policy=_allow_light_policy(),  # locks are NOT allowed
+        audit=audit,
+    )
+    state = await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="unlock the door")],
+            "decision_id": "d-deny",
+            "iteration": 0,
+        }
+    )
+    assert state["response"].content == "Sorry, I can't unlock that."
+    # The tool_result the model saw must be flagged as error.
+    user_msg_with_result = fake_gateway.calls[1]["messages"][-1]
+    assert user_msg_with_result.tool_results[0].is_error is True
+    assert "Denied" in user_msg_with_result.tool_results[0].content
+
+
+async def test_unknown_tool_yields_error_result(
+    fake_gateway: FakeGateway, engine: AsyncEngine, mock_ha: HAClient
+) -> None:
+    audit = AuditLogger(engine)
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[ToolUse(id="tu_x", name="unknown_tool", input={})],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(content="ok", model="fake-model", input_tokens=2, output_tokens=2)
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=mock_ha,
+        policy=_allow_light_policy(),
+        audit=audit,
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="do something weird")],
+            "decision_id": "d-unknown",
+            "iteration": 0,
+        }
+    )
+    result = fake_gateway.calls[1]["messages"][-1].tool_results[0]
+    assert result.is_error is True
+    assert "Unknown tool" in result.content
+
+
+async def test_invalid_tool_input_yields_error_result(
+    fake_gateway: FakeGateway, engine: AsyncEngine, mock_ha: HAClient
+) -> None:
+    audit = AuditLogger(engine)
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[ToolUse(id="tu_bad", name="call_service", input={"domain": ""})],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(content="ok", model="fake-model", input_tokens=2, output_tokens=2)
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=mock_ha,
+        policy=_allow_light_policy(),
+        audit=audit,
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="bad call")],
+            "decision_id": "d-bad",
+            "iteration": 0,
+        }
+    )
+    result = fake_gateway.calls[1]["messages"][-1].tool_results[0]
+    assert result.is_error is True
+    assert "Invalid call_service input" in result.content
+
+
+async def test_iteration_cap_bails_out(
+    fake_gateway: FakeGateway, engine: AsyncEngine, mock_ha: HAClient
+) -> None:
+    """A model that keeps emitting tool_use must not run forever."""
+
+    audit = AuditLogger(engine)
+    # Queue 10 tool_use responses; max_iterations=3 should stop early.
+    for i in range(10):
+        fake_gateway.queue(
+            ChatResponse(
+                content="",
+                model="fake-model",
+                input_tokens=1,
+                output_tokens=2,
+                stop_reason="tool_use",
+                tool_uses=[
+                    ToolUse(
+                        id=f"tu_{i}",
+                        name="call_service",
+                        input={"domain": "light", "service": "turn_on"},
+                    )
+                ],
+            )
+        )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=mock_ha,
+        policy=_allow_light_policy(),
+        audit=audit,
+        max_iterations=3,
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="loop forever")],
+            "decision_id": "d-cap",
+            "iteration": 0,
+        }
+    )
+    # 3 LLM calls, then bail.
+    assert len(fake_gateway.calls) == 3
