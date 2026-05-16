@@ -35,6 +35,29 @@ def test_create_app_with_key_builds_default_gateway(db_url: str):
     assert isinstance(app.state.gateway, AnthropicProvider)
 
 
+def test_create_app_with_ha_settings_builds_default_ha(db_url: str):
+    """When CAESAR_HA__URL and CAESAR_HA__TOKEN are set, the bridge is built."""
+
+    from caesar.config import HASettings
+    from caesar.ha.client import HAClient
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        ha=HASettings(url="http://ha.test", token=SecretStr("ha-token")),
+    )
+    app = create_app(settings=settings)
+    assert isinstance(app.state.ha, HAClient)
+
+
+def test_create_app_without_ha_settings_leaves_ha_none(db_url: str):
+    """No HA url/token → app.state.ha is None."""
+
+    app = create_app(settings=_settings_with_key(db_url))
+    assert app.state.ha is None
+
+
 async def test_lifespan_runs_startup_and_shutdown(
     db_url: str,
     fake_gateway,

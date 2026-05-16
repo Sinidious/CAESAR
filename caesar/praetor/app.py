@@ -16,11 +16,13 @@ from caesar import __version__
 from caesar.config import CaesarSettings, get_settings
 from caesar.db.audit import AuditLogger
 from caesar.db.engine import create_engine
+from caesar.ha.client import HAClient
 from caesar.llm.anthropic import AnthropicProvider
 from caesar.llm.gateway import LLMGateway
 from caesar.log import configure_logging, get_logger
+from caesar.policy.engine import DenyAllPolicy, Policy
 from caesar.praetor.middleware import request_id_middleware
-from caesar.praetor.routes import chat, health
+from caesar.praetor.routes import chat, devices, health
 
 
 def _default_gateway(settings: CaesarSettings) -> LLMGateway:
@@ -35,11 +37,24 @@ def _default_gateway(settings: CaesarSettings) -> LLMGateway:
     )
 
 
+def _default_ha(settings: CaesarSettings) -> HAClient | None:
+    if settings.ha.url is None or settings.ha.token is None:
+        return None
+    return HAClient(
+        url=settings.ha.url,
+        token=settings.ha.token.get_secret_value(),
+        timeout=settings.ha.timeout_seconds,
+        verify_ssl=settings.ha.verify_ssl,
+    )
+
+
 def create_app(
     *,
     settings: CaesarSettings | None = None,
     gateway: LLMGateway | None = None,
     engine: AsyncEngine | None = None,
+    ha: HAClient | None = None,
+    policy: Policy | None = None,
 ) -> FastAPI:
     """Build a Praetor FastAPI app, optionally with injected collaborators."""
 
@@ -49,6 +64,8 @@ def create_app(
 
     engine = engine if engine is not None else create_engine(settings.db.url, echo=settings.db.echo)
     gateway = gateway if gateway is not None else _default_gateway(settings)
+    ha = ha if ha is not None else _default_ha(settings)
+    policy = policy if policy is not None else DenyAllPolicy()
     audit = AuditLogger(engine)
 
     @asynccontextmanager
@@ -57,10 +74,14 @@ def create_app(
             "praetor.startup",
             version=__version__,
             model=settings.llm.model,
+            ha_configured=ha is not None,
+            policy=type(policy).__name__,
         )
         try:
             yield
         finally:
+            if ha is not None:
+                await ha.aclose()
             await engine.dispose()
             logger.info("praetor.shutdown")
 
@@ -72,9 +93,12 @@ def create_app(
     app.state.settings = settings
     app.state.engine = engine
     app.state.gateway = gateway
+    app.state.ha = ha
+    app.state.policy = policy
     app.state.audit = audit
 
     app.middleware("http")(request_id_middleware)
     app.include_router(health.router)
     app.include_router(chat.router)
+    app.include_router(devices.router)
     return app

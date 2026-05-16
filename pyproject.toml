@@ -39,6 +39,7 @@ dependencies = [
     "alembic>=1.14.0",
     "anthropic>=0.40.0",
     "langgraph>=0.2.50",
+    "websockets>=13.0",
 ]
 
 [project.optional-dependencies]
