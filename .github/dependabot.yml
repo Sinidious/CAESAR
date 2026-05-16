@@ -1,5 +1,8 @@
 version: 2
 updates:
+  # GitHub Actions: one consolidated weekly PR for all action bumps.
+  # Majors land in their own PR (and need an approval) so they get a
+  # closer look.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -12,7 +15,17 @@ updates:
     commit-message:
       prefix: "ci"
       include: scope
+    groups:
+      github-actions:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
 
+  # Python dependencies (pyproject.toml).
+  # - dev-dependencies: minor/patch bumps for the `dev` and `docs`
+  #   extras, grouped into one weekly PR.
+  # - security: any security advisory across all deps gets coalesced
+  #   into one PR.
   - package-ecosystem: pip
     directory: "/"
     schedule:
@@ -27,4 +40,9 @@ updates:
       include: scope
     groups:
       dev-dependencies:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
         dependency-type: "development"
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
