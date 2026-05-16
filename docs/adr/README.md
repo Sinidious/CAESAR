@@ -44,3 +44,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0016 | [Repository and package layout](0016-package-layout.md)                   | Accepted |
 | 0017 | [Configuration via pydantic-settings with layered sources](0017-configuration.md) | Accepted |
 | 0018 | [Structured logging with structlog](0018-structured-logging.md)           | Accepted |
+| 0019 | [SQLite persistence via SQLAlchemy Core and Alembic](0019-sqlite-persistence.md) | Accepted |
