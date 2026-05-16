@@ -1,0 +1,24 @@
+# CAESAR policy rules — example (ADR-0013).
+#
+# Point CAESAR_POLICY__RULES_PATH at this file (or a copy) to enable
+# the allow-list policy. With no rules file set, CAESAR runs the
+# deny-all stub and refuses every service call.
+#
+# Schema (v1):
+#   version: 1
+#   allowed_services: a flat list of "domain.service" identifiers
+#                     that CAESAR may invoke through the HA Bridge.
+#                     Anything not listed here is denied.
+#
+# Conditions, per-entity globs, and `require_confirm` verdicts are
+# planned for a follow-up; this is the MVP slice.
+
+version: 1
+allowed_services:
+  - light.turn_on
+  - light.turn_off
+  - light.toggle
+  - switch.turn_on
+  - switch.turn_off
+  - switch.toggle
+  - homeassistant.check_config

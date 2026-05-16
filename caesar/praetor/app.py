@@ -20,7 +20,9 @@ from caesar.ha.client import HAClient
 from caesar.llm.anthropic import AnthropicProvider
 from caesar.llm.gateway import LLMGateway
 from caesar.log import configure_logging, get_logger
+from caesar.policy.allowlist import AllowlistPolicy
 from caesar.policy.engine import DenyAllPolicy, Policy
+from caesar.policy.yaml_loader import load_rules
 from caesar.praetor.middleware import request_id_middleware
 from caesar.praetor.routes import chat, devices, health
 
@@ -48,6 +50,20 @@ def _default_ha(settings: CaesarSettings) -> HAClient | None:
     )
 
 
+def _default_policy(settings: CaesarSettings) -> Policy:
+    """Build the configured Policy, or fall back to the deny-all stub.
+
+    When ``CAESAR_POLICY__RULES_PATH`` is set, load it now and raise
+    ``PolicyRulesError`` on any problem — the operator should learn
+    about a broken rules file at startup, not at the first service call.
+    """
+
+    if settings.policy.rules_path is None:
+        return DenyAllPolicy()
+    rules = load_rules(settings.policy.rules_path)
+    return AllowlistPolicy(rules)
+
+
 def create_app(
     *,
     settings: CaesarSettings | None = None,
@@ -65,7 +81,7 @@ def create_app(
     engine = engine if engine is not None else create_engine(settings.db.url, echo=settings.db.echo)
     gateway = gateway if gateway is not None else _default_gateway(settings)
     ha = ha if ha is not None else _default_ha(settings)
-    policy = policy if policy is not None else DenyAllPolicy()
+    policy = policy if policy is not None else _default_policy(settings)
     audit = AuditLogger(engine)
 
     @asynccontextmanager

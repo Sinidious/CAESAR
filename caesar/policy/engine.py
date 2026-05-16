@@ -15,10 +15,16 @@ from caesar.ha.models import ServiceCall
 
 
 class PolicyDecision(BaseModel):
-    """Result of evaluating a service call against the active policy."""
+    """Result of evaluating a service call against the active policy.
+
+    ``rule`` is the name of the rule that fired, if any. The allow-list
+    policy uses the matched service identifier as the rule name; richer
+    policies (named rules, conditions) populate it with a real name.
+    """
 
     allowed: bool
     reason: str
+    rule: str | None = None
 
 
 class Policy(Protocol):

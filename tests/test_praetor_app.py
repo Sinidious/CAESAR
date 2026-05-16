@@ -58,6 +58,44 @@ def test_create_app_without_ha_settings_leaves_ha_none(db_url: str):
     assert app.state.ha is None
 
 
+def test_create_app_loads_yaml_policy_from_rules_path(db_url: str, tmp_path):
+    """When CAESAR_POLICY__RULES_PATH is set, AllowlistPolicy is loaded."""
+
+    from caesar.config import PolicySettings
+    from caesar.policy.allowlist import AllowlistPolicy
+
+    rules_path = tmp_path / "rules.yaml"
+    rules_path.write_text(
+        "version: 1\nallowed_services:\n  - light.turn_on\n",
+        encoding="utf-8",
+    )
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        policy=PolicySettings(rules_path=rules_path),
+    )
+    app = create_app(settings=settings)
+    assert isinstance(app.state.policy, AllowlistPolicy)
+    assert "light.turn_on" in app.state.policy.allowed_services
+
+
+def test_create_app_with_broken_rules_path_raises(db_url: str, tmp_path):
+    """Missing rules file makes startup fail fast."""
+
+    from caesar.config import PolicySettings
+    from caesar.policy.yaml_loader import PolicyRulesError
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        policy=PolicySettings(rules_path=tmp_path / "missing.yaml"),
+    )
+    with pytest.raises(PolicyRulesError):
+        create_app(settings=settings)
+
+
 async def test_lifespan_runs_startup_and_shutdown(
     db_url: str,
     fake_gateway,
