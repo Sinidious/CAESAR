@@ -9,6 +9,18 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from
 [Conventional Commits](https://www.conventionalcommits.org) on `main`.
 
+## [0.1.2](https://github.com/Sinidious/CAESAR/compare/v0.1.1...v0.1.2) (2026-05-16)
+
+
+### Bug Fixes
+
+* allow release-please-- branches and replace broken CI badge ([#23](https://github.com/Sinidious/CAESAR/issues/23)) ([b8716f3](https://github.com/Sinidious/CAESAR/commit/b8716f3c59addf38403f37238efa2efe96ef819d))
+
+
+### Documentation
+
+* correct CLA required check name (cla, not CLA Assistant Lite) ([#17](https://github.com/Sinidious/CAESAR/issues/17)) ([48bc6a1](https://github.com/Sinidious/CAESAR/commit/48bc6a17e611a610473054b01d699a83c559c537))
+
 ## [0.1.1](https://github.com/Sinidious/CAESAR/compare/v0.1.0...v0.1.1) (2026-05-16)
 
 
