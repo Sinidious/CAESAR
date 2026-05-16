@@ -120,7 +120,7 @@ just setup
 - `dependency-review`
 - `conventional PR title`
 - `branch name prefix`
-- `CLA Assistant Lite`
+- `cla`
 
 Match these check names exactly when adding or renaming workflows.
 
