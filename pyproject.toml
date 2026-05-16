@@ -129,6 +129,10 @@ asyncio_mode = "auto"
 branch = true
 source = ["caesar"]
 omit = ["caesar/db/migrations/*"]
+# SQLAlchemy's async stack dispatches sync work through greenlets;
+# without this, the connect-listener pragma execution isn't traced
+# on Linux CI even though the tests prove it runs.
+concurrency = ["thread", "greenlet"]
 
 [tool.coverage.report]
 show_missing = true
