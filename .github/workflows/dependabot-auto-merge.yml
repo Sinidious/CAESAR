@@ -1,0 +1,38 @@
+name: dependabot-auto-merge
+
+# Automatically approve and enable auto-merge on Dependabot PRs that
+# are patch or minor version updates. Major version bumps and security
+# advisories still wait for a human (the auto-merge-on-approval flow
+# picks them up once a maintainer approves).
+#
+# The GITHUB_TOKEN's approval satisfies branch protection's "1 approval
+# required" rule. CI must still pass before the PR can merge.
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve and auto-merge patch / minor updates
+        if: |
+          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.update-type == 'version-update:semver-minor'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr review --approve "$PR_URL" --body "Auto-approved: Dependabot ${{ steps.meta.outputs.update-type }}."
+          gh pr merge --auto --squash "$PR_URL"

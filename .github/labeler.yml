@@ -1,0 +1,22 @@
+# actions/labeler config. Each label is followed by globs that, when
+# matched by changed files in a PR, cause the label to be applied (or
+# removed, since the workflow sets sync-labels: true).
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - docs/**
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - .pre-commit-config.yaml
+          - justfile
+
+python:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.py"
+          - pyproject.toml
