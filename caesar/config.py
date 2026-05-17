@@ -102,6 +102,20 @@ class MemorySettings(BaseModel):
     sweep_interval_seconds: float = 3600.0
 
 
+class DashboardSettings(BaseModel):
+    """Dashboard configuration (ADR-0021).
+
+    The dashboard is opt-in: until ``token`` is set, ``/dashboard/*``
+    returns 404. Operators bind to ``127.0.0.1`` and front it with a
+    reverse proxy when they want LAN/WAN access.
+    """
+
+    token: SecretStr | None = None
+    history_limit: int = 100
+    cookie_name: str = "caesar_dashboard"
+    cookie_max_age_seconds: int = 60 * 60 * 24 * 30  # 30 days
+
+
 class SemanticSettings(BaseModel):
     """Semantic memory configuration (ADR-0010 amendment).
 
@@ -157,6 +171,7 @@ class CaesarSettings(BaseSettings):
     legion: LegionSettings = Field(default_factory=LegionSettings)
     memory: MemorySettings = Field(default_factory=MemorySettings)
     semantic: SemanticSettings = Field(default_factory=SemanticSettings)
+    dashboard: DashboardSettings = Field(default_factory=DashboardSettings)
 
 
 @lru_cache(maxsize=1)

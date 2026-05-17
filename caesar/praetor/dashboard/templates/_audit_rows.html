@@ -1,0 +1,12 @@
+{% if not items %}
+  <p class="empty">No audit events yet.</p>
+{% else %}
+  {% for item in items %}
+    <div class="audit-row">
+      <span class="ts">{{ item.ts }}</span>
+      <span class="event">{{ item.event_type }}</span>
+      <span class="id">#{{ item.id }}</span>
+      <pre class="payload">{{ item.payload }}</pre>
+    </div>
+  {% endfor %}
+{% endif %}

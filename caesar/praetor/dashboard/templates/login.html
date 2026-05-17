@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}CAESAR — login{% endblock %}
+{% block content %}
+  <section class="login">
+    <h2>Dashboard login</h2>
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+    <form method="post" action="/dashboard/login">
+      <label for="token">Token</label>
+      <input
+        type="password"
+        id="token"
+        name="token"
+        autocomplete="current-password"
+        required
+        autofocus
+      />
+      <button type="submit">Sign in</button>
+    </form>
+    <p class="hint">
+      Set <code>CAESAR_DASHBOARD__TOKEN</code> in your environment to
+      enable access.
+    </p>
+  </section>
+{% endblock %}
