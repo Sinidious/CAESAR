@@ -275,6 +275,7 @@ def _reset_logging() -> Iterator[None]:
     filterwarnings=error promotes to failures.
     """
 
+    import contextlib
     import logging
 
     import structlog
@@ -285,7 +286,5 @@ def _reset_logging() -> Iterator[None]:
     root = logging.getLogger()
     for handler in list(root.handlers):
         root.removeHandler(handler)
-        try:
+        with contextlib.suppress(Exception):
             handler.close()
-        except Exception:
-            pass
