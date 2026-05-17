@@ -3,6 +3,14 @@
 {% block content %}
   <section class="settings">
     <h2>Brain personality</h2>
+    {% if is_overridden %}
+      <p class="banner banner-warning" role="status">
+        <strong>System prompt override is active.</strong>
+        Praetor is using a prompt set from this dashboard, not the
+        <code>CAESAR_LLM__SYSTEM_PROMPT</code> environment default.
+        Clear the box and save to restore the default.
+      </p>
+    {% endif %}
     {% if saved %}
       <p class="hint saved">Saved. Next chat picks up the new prompt.</p>
     {% endif %}

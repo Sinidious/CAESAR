@@ -120,7 +120,12 @@ class DashboardSettings(BaseModel):
     token: SecretStr | None = None
     history_limit: int = 100
     cookie_name: str = "caesar_dashboard"
-    cookie_max_age_seconds: int = 60 * 60 * 24 * 30  # 30 days
+    # 7-day default (SR-007). Long enough to avoid relogging in from
+    # the kitchen tablet every morning, short enough that a leaked
+    # cookie has a bounded shelf life. Operators can extend via
+    # CAESAR_DASHBOARD__COOKIE_MAX_AGE_SECONDS when they want longer
+    # sessions.
+    cookie_max_age_seconds: int = 60 * 60 * 24 * 7
 
 
 class SemanticSettings(BaseModel):

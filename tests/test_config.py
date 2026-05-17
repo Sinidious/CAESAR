@@ -17,6 +17,8 @@ def test_defaults_are_safe():
     assert s.server.host == "127.0.0.1"
     assert s.server.port == 8000
     assert s.llm.api_key is None
+    # SR-007: dashboard sessions expire after 7 days by default.
+    assert s.dashboard.cookie_max_age_seconds == 60 * 60 * 24 * 7
 
 
 def test_env_nested_delimiter(monkeypatch: pytest.MonkeyPatch):

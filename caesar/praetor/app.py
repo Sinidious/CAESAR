@@ -38,6 +38,7 @@ from caesar.praetor.audit_bus import AuditEventBus
 from caesar.praetor.dashboard import build_router as build_dashboard_router
 from caesar.praetor.dashboard.rate_limit import LoginRateLimiter
 from caesar.praetor.dashboard.routes import STATIC_DIR as DASHBOARD_STATIC_DIR
+from caesar.praetor.dashboard.security_headers import dashboard_security_headers_middleware
 from caesar.praetor.middleware import request_id_middleware
 from caesar.praetor.routes import chat, devices, health
 from caesar.praetor.routes import metrics as metrics_route
@@ -250,6 +251,7 @@ def create_app(
     app.state.login_rate_limiter = LoginRateLimiter()
 
     app.middleware("http")(request_id_middleware)
+    app.middleware("http")(dashboard_security_headers_middleware)
     app.include_router(health.router)
     app.include_router(chat.router)
     app.include_router(devices.router)

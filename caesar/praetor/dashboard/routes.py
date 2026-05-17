@@ -23,6 +23,7 @@ from caesar.db.audit import AuditLogger
 from caesar.db.schema import audit_log
 from caesar.db.settings_store import SettingsStore
 from caesar.legion.registry import WorkerRegistry
+from caesar.log import get_logger
 from caesar.praetor.audit_bus import AuditEventBus
 from caesar.praetor.dashboard.auth import (
     make_session_cookie,
@@ -35,6 +36,8 @@ from caesar.praetor.dashboard.views import load_agent_activity, load_intents
 PACKAGE_ROOT = Path(__file__).resolve().parent
 TEMPLATES_DIR = PACKAGE_ROOT / "templates"
 STATIC_DIR = PACKAGE_ROOT / "static"
+
+logger = get_logger("caesar.praetor.dashboard")
 
 
 def _settings_from(request: Request) -> DashboardSettings:
@@ -232,6 +235,15 @@ def build_router() -> APIRouter:
             await audit.record(
                 "settings.updated",
                 {"key": "llm.system_prompt", "length": len(prompt)},
+            )
+            # SR-012: surface the override in operator process logs as
+            # well as the audit log. An attacker who reaches the
+            # settings page (post-SR-002) shouldn't be able to rewrite
+            # the brain's persona silently.
+            logger.warning(
+                "dashboard.system_prompt_override_set",
+                source_ip=_client_key(request),
+                length=len(prompt),
             )
         return templates.TemplateResponse(
             request,
