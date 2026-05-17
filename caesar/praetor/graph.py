@@ -229,6 +229,7 @@ def build_brain_graph(
                     system=compose_system_prompt(state.get("system")),
                     model=state.get("model"),
                     tools=tools or None,
+                    task="chat",
                 )
             assistant_msg = ChatMessage(
                 role="assistant",

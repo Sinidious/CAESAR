@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from caesar import __version__
 from caesar.bus.client import Bus
-from caesar.config import CaesarSettings, get_settings
+from caesar.config import CaesarSettings, LLMProvider, get_settings
 from caesar.db.audit import AuditLogger
 from caesar.db.engine import create_engine
 from caesar.db.settings_store import SettingsStore
@@ -29,6 +29,7 @@ from caesar.llm.embeddings import Embedder, StubEmbedder, VoyageEmbedder
 from caesar.llm.gateway import LLMGateway
 from caesar.llm.ollama import OllamaProvider
 from caesar.llm.openai import OpenAIProvider
+from caesar.llm.router import TaskRouter
 from caesar.log import configure_logging, get_logger
 from caesar.memory.retention import RetentionSweeper
 from caesar.memory.semantic import SemanticIndexer
@@ -47,16 +48,15 @@ from caesar.praetor.routes import metrics as metrics_route
 from caesar.tracing import setup_tracing, shutdown_tracing
 
 
-def _default_gateway(settings: CaesarSettings) -> LLMGateway:
-    """Construct the configured LLM provider (ADR-0026).
+def _build_provider(
+    provider: LLMProvider,
+    *,
+    model: str,
+    settings: CaesarSettings,
+) -> LLMGateway:
+    """Construct one provider gateway from its sub-settings."""
 
-    Switches on ``settings.llm.provider``. Falls back to the legacy
-    top-level ``CAESAR_LLM__API_KEY`` env var for Anthropic when the
-    nested ``llm.anthropic.api_key`` is unset, so pre-v1.1 deployments
-    upgrade without an env-file edit.
-    """
-
-    if settings.llm.provider == "anthropic":
+    if provider == "anthropic":
         api_key = settings.llm.anthropic.api_key or settings.llm.api_key
         if api_key is None:
             raise RuntimeError(
@@ -65,29 +65,54 @@ def _default_gateway(settings: CaesarSettings) -> LLMGateway:
             )
         return AnthropicProvider(
             api_key=api_key.get_secret_value(),
-            default_model=settings.llm.model,
+            default_model=model,
             default_max_tokens=settings.llm.max_tokens,
         )
-    if settings.llm.provider == "openai":
+    if provider == "openai":
         if settings.llm.openai.api_key is None:
             raise RuntimeError(
                 "CAESAR_LLM__OPENAI__API_KEY is required when provider=openai.",
             )
         return OpenAIProvider(
             api_key=settings.llm.openai.api_key.get_secret_value(),
-            default_model=settings.llm.model,
+            default_model=model,
             default_max_tokens=settings.llm.max_tokens,
             base_url=settings.llm.openai.base_url,
         )
-    if settings.llm.provider == "ollama":
+    if provider == "ollama":
         return OllamaProvider(
-            default_model=settings.llm.model,
+            default_model=model,
             default_max_tokens=settings.llm.max_tokens,
             base_url=settings.llm.ollama.base_url,
         )
     raise RuntimeError(  # pragma: no cover - exhaustively matched above
-        f"unknown LLM provider: {settings.llm.provider!r}",
+        f"unknown LLM provider: {provider!r}",
     )
+
+
+def _default_gateway(settings: CaesarSettings) -> LLMGateway:
+    """Construct the gateway router (ADR-0026).
+
+    Builds one provider gateway for the configured default, plus one
+    per entry in ``settings.llm.task_routing``. The router wraps them
+    so callers pass ``task="<name>"`` and the right provider answers.
+    With an empty ``task_routing`` dict (the default) every task is
+    served by the configured default — same behaviour as v1.0.
+    """
+
+    default = _build_provider(
+        settings.llm.provider,
+        model=settings.llm.model,
+        settings=settings,
+    )
+    per_task: dict[str, LLMGateway] = {}
+    for task_name, task_cfg in settings.llm.task_routing.items():
+        per_task[task_name] = _build_provider(
+            task_cfg.provider,
+            model=task_cfg.model,
+            settings=settings,
+        )
+    return TaskRouter(default=default, per_task=per_task)
 
 
 def _default_ha(settings: CaesarSettings) -> HAClient | None:

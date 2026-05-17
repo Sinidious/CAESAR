@@ -58,6 +58,19 @@ class OllamaProviderSettings(BaseModel):
     base_url: str = "http://localhost:11434"
 
 
+class LLMTaskConfig(BaseModel):
+    """One row of ``LLMSettings.task_routing`` (ADR-0026).
+
+    ``provider`` picks which configured backend handles the task;
+    ``model`` overrides the default model for that backend. Provider
+    auth/base_url comes from the matching ``LLMSettings.<provider>``
+    sub-settings — task routing only chooses; it doesn't reconfigure.
+    """
+
+    provider: LLMProvider
+    model: str
+
+
 class LLMSettings(BaseModel):
     """LLM gateway configuration (ADR-0011, extended by ADR-0026)."""
 
@@ -79,6 +92,12 @@ class LLMSettings(BaseModel):
     anthropic: AnthropicProviderSettings = Field(default_factory=AnthropicProviderSettings)
     openai: OpenAIProviderSettings = Field(default_factory=OpenAIProviderSettings)
     ollama: OllamaProviderSettings = Field(default_factory=OllamaProviderSettings)
+
+    # ADR-0026: optional per-task routing. Keys are task names emitted
+    # by the brain graph (e.g. ``"chat"``); values pick a different
+    # provider/model for that task. An empty dict (default) routes
+    # every task to the configured default provider/model.
+    task_routing: dict[str, LLMTaskConfig] = Field(default_factory=dict)
 
 
 class LogSettings(BaseModel):

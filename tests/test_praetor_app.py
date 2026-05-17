@@ -32,7 +32,7 @@ def test_create_app_with_key_builds_default_gateway(db_url: str):
     from caesar.llm.anthropic import AnthropicProvider
 
     app = create_app(settings=_settings_with_key(db_url))
-    assert isinstance(app.state.gateway, AnthropicProvider)
+    assert isinstance(app.state.gateway.default, AnthropicProvider)
 
 
 def test_create_app_with_provider_openai_builds_openai_gateway(db_url: str):
@@ -51,7 +51,7 @@ def test_create_app_with_provider_openai_builds_openai_gateway(db_url: str):
         log=LogSettings(format="console", level="DEBUG"),
     )
     app = create_app(settings=settings)
-    assert isinstance(app.state.gateway, OpenAIProvider)
+    assert isinstance(app.state.gateway.default, OpenAIProvider)
 
 
 def test_create_app_with_provider_ollama_builds_ollama_gateway(db_url: str):
@@ -70,8 +70,45 @@ def test_create_app_with_provider_ollama_builds_ollama_gateway(db_url: str):
         log=LogSettings(format="console", level="DEBUG"),
     )
     app = create_app(settings=settings)
-    assert isinstance(app.state.gateway, OllamaProvider)
-    assert app.state.gateway._base_url == "http://gpu-box.lan:11434"
+    assert isinstance(app.state.gateway.default, OllamaProvider)
+    assert app.state.gateway.default._base_url == "http://gpu-box.lan:11434"
+
+
+def test_create_app_default_gateway_is_a_task_router(db_url: str):
+    """ADR-0026: app.state.gateway is always a TaskRouter so any
+    future per-task config can fire without re-plumbing call sites."""
+
+    from caesar.llm.router import TaskRouter
+
+    app = create_app(settings=_settings_with_key(db_url))
+    assert isinstance(app.state.gateway, TaskRouter)
+
+
+def test_create_app_builds_per_task_gateways_from_routing(db_url: str):
+    """ADR-0026: ``task_routing`` entries each get their own provider."""
+
+    from caesar.config import LLMTaskConfig, OpenAIProviderSettings
+    from caesar.llm.anthropic import AnthropicProvider
+    from caesar.llm.openai import OpenAIProvider
+    from caesar.llm.router import TaskRouter
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(
+            provider="anthropic",
+            model="claude-haiku-4-5-20251001",
+            api_key=SecretStr("sk-anthropic"),
+            openai=OpenAIProviderSettings(api_key=SecretStr("sk-openai")),
+            task_routing={"recall_summary": LLMTaskConfig(provider="openai", model="gpt-4o-mini")},
+        ),
+        log=LogSettings(format="console", level="DEBUG"),
+    )
+    app = create_app(settings=settings)
+    router = app.state.gateway
+    assert isinstance(router, TaskRouter)
+    assert isinstance(router.default, AnthropicProvider)
+    assert isinstance(router.gateway_for("recall_summary"), OpenAIProvider)
+    assert router.gateway_for("chat") is router.default  # not configured
 
 
 def test_create_app_with_provider_openai_no_key_raises(db_url: str):
@@ -103,7 +140,7 @@ def test_create_app_prefers_nested_anthropic_key_over_legacy_top_level(db_url: s
     # confirm the right type was built without raising.
     from caesar.llm.anthropic import AnthropicProvider
 
-    assert isinstance(app.state.gateway, AnthropicProvider)
+    assert isinstance(app.state.gateway.default, AnthropicProvider)
 
 
 def test_create_app_with_ha_settings_builds_default_ha(db_url: str):

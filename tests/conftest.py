@@ -52,6 +52,7 @@ class FakeGateway:
         model: str | None = None,
         max_tokens: int | None = None,
         tools: list[ToolDefinition] | None = None,
+        task: str | None = None,
     ) -> ChatResponse:
         self.calls.append(
             {
@@ -60,6 +61,7 @@ class FakeGateway:
                 "model": model,
                 "max_tokens": max_tokens,
                 "tools": tools,
+                "task": task,
             }
         )
         if self.scripted:
