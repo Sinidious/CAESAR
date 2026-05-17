@@ -22,6 +22,7 @@ from caesar.db.settings_store import SettingsStore
 from caesar.ha.client import HAClient
 from caesar.legion.registry import WorkerRegistry
 from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway
+from caesar.metrics import CHAT_DURATION
 from caesar.policy.engine import Policy
 from caesar.praetor.graph import build_brain_graph
 
@@ -84,15 +85,16 @@ async def chat(
     overridden_prompt = await settings_store.get_system_prompt()
     effective_prompt = overridden_prompt or settings.llm.system_prompt
     graph = build_brain_graph(gateway=gateway, ha=ha, policy=policy, audit=audit, registry=registry)
-    state = await graph.ainvoke(
-        {
-            "messages": body.messages,
-            "system": effective_prompt,
-            "model": body.model or settings.llm.model,
-            "decision_id": decision_id,
-            "iteration": 0,
-        }
-    )
+    with CHAT_DURATION.time():
+        state = await graph.ainvoke(
+            {
+                "messages": body.messages,
+                "system": effective_prompt,
+                "model": body.model or settings.llm.model,
+                "decision_id": decision_id,
+                "iteration": 0,
+            }
+        )
     response: ChatResponse = state["response"]
 
     audit_id = await audit.record(

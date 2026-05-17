@@ -81,6 +81,39 @@ SQLite snapshots compress well with `gzip` / `zstd`.
 - **Cross-engine portability.** Backups are SQLite-specific. If a
   future ADR brings Postgres in, that's a separate path.
 
+## Metrics
+
+Praetor exposes Prometheus metrics at `GET /metrics`. There is no
+auth on this route: bind on loopback and front it with a reverse
+proxy, or scrape from the host running Praetor.
+
+What you get:
+
+- `caesar_audit_events_total{event_type}` — Counter. Every audit row
+  increments this. Pivot by event_type for chat, service calls,
+  policy denials, retention sweeps, etc.
+- `caesar_chat_duration_seconds` — Histogram. End-to-end `/v1/chat`
+  latency.
+- `caesar_workers_registered` — Gauge. Currently registered Legion
+  workers.
+- `caesar_retention_sweeper_running` — Gauge. 1 when the background
+  retention sweep is alive, 0 when it isn't.
+- `caesar_semantic_indexer_running` — Gauge. Same for the semantic
+  indexer.
+- `caesar_audit_bus_subscribers` — Gauge. Live SSE subscribers on
+  the audit bus (dashboard tabs).
+
+Example Prometheus scrape config:
+
+```yaml
+scrape_configs:
+  - job_name: caesar
+    static_configs:
+      - targets: ['127.0.0.1:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+```
+
 ## Where the data lives
 
 - `./var/caesar.sqlite3` — the durable store.

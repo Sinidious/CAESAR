@@ -30,6 +30,7 @@ from caesar.llm.gateway import LLMGateway
 from caesar.log import configure_logging, get_logger
 from caesar.memory.retention import RetentionSweeper
 from caesar.memory.semantic import SemanticIndexer
+from caesar.metrics import register_app_collector, unregister_collector
 from caesar.policy.allowlist import AllowlistPolicy
 from caesar.policy.engine import DenyAllPolicy, Policy
 from caesar.policy.yaml_loader import load_rules
@@ -38,6 +39,7 @@ from caesar.praetor.dashboard import build_router as build_dashboard_router
 from caesar.praetor.dashboard.routes import STATIC_DIR as DASHBOARD_STATIC_DIR
 from caesar.praetor.middleware import request_id_middleware
 from caesar.praetor.routes import chat, devices, health
+from caesar.praetor.routes import metrics as metrics_route
 
 
 def _default_gateway(settings: CaesarSettings) -> LLMGateway:
@@ -191,6 +193,7 @@ def create_app(
         sweeper.start_background()
         if semantic_indexer is not None:
             semantic_indexer.start_background()
+        app.state.metrics_collector = register_app_collector(app)
         logger.info(
             "praetor.startup",
             version=__version__,
@@ -217,6 +220,9 @@ def create_app(
             if ha is not None:
                 await ha.aclose()
             await engine.dispose()
+            collector = getattr(app.state, "metrics_collector", None)
+            if collector is not None:
+                unregister_collector(collector)
             logger.info("praetor.shutdown")
 
     app = FastAPI(
@@ -242,6 +248,8 @@ def create_app(
     app.include_router(health.router)
     app.include_router(chat.router)
     app.include_router(devices.router)
+    app.include_router(metrics_route.router)
+    app.state.metrics_collector = None
     if settings.dashboard.token is not None:
         app.include_router(build_dashboard_router())
         app.mount(
