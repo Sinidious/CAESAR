@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from caesar.config import CaesarSettings
 from caesar.db.audit import AuditLogger
+from caesar.db.settings_store import SettingsStore
 from caesar.ha.client import HAClient
 from caesar.legion.registry import WorkerRegistry
 from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway
@@ -64,6 +65,10 @@ def _get_registry(request: Request) -> WorkerRegistry | None:
     return cast(WorkerRegistry | None, request.app.state.registry)
 
 
+def _get_settings_store(request: Request) -> SettingsStore:
+    return cast(SettingsStore, request.app.state.settings_store)
+
+
 @router.post("/v1/chat", response_model=ChatResponseBody)
 async def chat(
     body: ChatRequest,
@@ -73,13 +78,16 @@ async def chat(
     ha: Annotated[HAClient | None, Depends(_get_ha)],
     policy: Annotated[Policy, Depends(_get_policy)],
     registry: Annotated[WorkerRegistry | None, Depends(_get_registry)],
+    settings_store: Annotated[SettingsStore, Depends(_get_settings_store)],
 ) -> ChatResponseBody:
     decision_id = uuid.uuid4().hex
+    overridden_prompt = await settings_store.get_system_prompt()
+    effective_prompt = overridden_prompt or settings.llm.system_prompt
     graph = build_brain_graph(gateway=gateway, ha=ha, policy=policy, audit=audit, registry=registry)
     state = await graph.ainvoke(
         {
             "messages": body.messages,
-            "system": settings.llm.system_prompt,
+            "system": effective_prompt,
             "model": body.model or settings.llm.model,
             "decision_id": decision_id,
             "iteration": 0,

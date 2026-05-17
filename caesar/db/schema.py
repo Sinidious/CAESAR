@@ -30,6 +30,22 @@ audit_log = Table(
 """Append-only record of every brain decision (ADR-0012)."""
 
 
+app_settings = Table(
+    "app_settings",
+    metadata,
+    C("key", String(64), primary_key=True),
+    C("value", String, nullable=False),
+    C("updated_at", DateTime(timezone=True), nullable=False),
+)
+"""Operator-tunable runtime settings.
+
+A flat key/value store. v0.5 writes ``llm.system_prompt`` here from
+the dashboard so operators can adjust CAESAR's voice without an env
+var + restart. The env-loaded ``CaesarSettings`` is still the default
+when no row is present.
+"""
+
+
 semantic_chunks = Table(
     "semantic_chunks",
     metadata,
