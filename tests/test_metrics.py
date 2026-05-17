@@ -68,9 +68,7 @@ async def test_audit_events_counter_increments(
 async def test_chat_route_records_latency(
     metrics_client: AsyncClient,
 ) -> None:
-    await metrics_client.post(
-        "/v1/chat", json={"messages": [{"role": "user", "content": "hi"}]}
-    )
+    await metrics_client.post("/v1/chat", json={"messages": [{"role": "user", "content": "hi"}]})
     r = await metrics_client.get("/metrics")
     assert r.status_code == 200
     # Histogram exposes a _count series; one observation = count 1.
