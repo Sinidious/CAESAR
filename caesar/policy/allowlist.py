@@ -85,9 +85,7 @@ class AllowlistPolicy:
         if call_entities is None:
             return PolicyDecision(
                 allowed=False,
-                reason=(
-                    f"{identifier} requires target.entity_id; call did not provide one."
-                ),
+                reason=(f"{identifier} requires target.entity_id; call did not provide one."),
                 rule=None,
             )
 
