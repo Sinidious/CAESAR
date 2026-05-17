@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -11,10 +11,13 @@ from caesar.legion.calendar_read import (
     CAPABILITY,
     DEFAULT_RANGE_DAYS,
     WORKER_ID,
+    CalDAVClient,
     CalendarReadError,
     CalendarReadWorker,
     _iso,
+    _normalise_event,
     _parse_dt,
+    _vget,
 )
 from caesar.legion.protocol import TaskDispatch
 
@@ -198,6 +201,104 @@ async def test_handle_rejects_range_too_large() -> None:
         )
 
 
+# --- _iso / _vget / _normalise_event ---------------------------------------
+
+
+def test_iso_handles_none_and_naive_datetimes() -> None:
+    assert _iso(None) == ""
+    naive = datetime(2026, 5, 17, 9, 0)
+    assert _iso(naive).endswith("+00:00")
+    assert _iso("2026-05-17") == "2026-05-17"
+
+
+class _VObjectLeaf:
+    def __init__(self, value: object) -> None:
+        self.value = value
+
+
+def test_vget_vobject_style_returns_value() -> None:
+    class _VEvent:
+        contents: ClassVar[dict[str, list[object]]] = {"summary": [_VObjectLeaf("Standup")]}
+
+    assert _vget(_VEvent(), "summary") == "Standup"
+
+
+def test_vget_icalendar_style_returns_dt() -> None:
+    class _Wrapper:
+        dt = datetime(2026, 5, 17, 9, 0, tzinfo=UTC)
+
+    class _VEvent:
+        def get(self, name: str) -> object | None:
+            return _Wrapper() if name == "dtstart" else None
+
+    assert _vget(_VEvent(), "dtstart") == datetime(2026, 5, 17, 9, 0, tzinfo=UTC)
+
+
+def test_vget_returns_none_for_unknown_field() -> None:
+    class _VEvent:
+        contents: ClassVar[dict[str, list[object]]] = {}
+
+        def get(self, name: str) -> None:
+            return None
+
+    assert _vget(_VEvent(), "anything") is None
+
+
+def test_normalise_event_vobject_style_returns_flat_dict() -> None:
+    class _SubComponent:
+        contents: ClassVar[dict[str, list[object]]] = {
+            "summary": [_VObjectLeaf("Standup")],
+            "dtstart": [_VObjectLeaf(datetime(2026, 5, 17, 9, 0, tzinfo=UTC))],
+            "dtend": [_VObjectLeaf(datetime(2026, 5, 17, 9, 15, tzinfo=UTC))],
+            "location": [_VObjectLeaf("Kitchen")],
+            "description": [_VObjectLeaf("notes")],
+        }
+
+    class _VCal:
+        subcomponents: ClassVar[list[_SubComponent]] = [_SubComponent()]
+
+    class _Event:
+        vobject_instance: ClassVar[_VCal] = _VCal()
+
+    out = _normalise_event(_Event(), calendar_name="Work")
+    assert out == {
+        "title": "Standup",
+        "start": "2026-05-17T09:00:00+00:00",
+        "end": "2026-05-17T09:15:00+00:00",
+        "location": "Kitchen",
+        "description": "notes",
+        "calendar": "Work",
+    }
+
+
+def test_normalise_event_returns_none_when_no_vcal() -> None:
+    class _Event:
+        vobject_instance = None
+        icalendar_instance = None
+
+    assert _normalise_event(_Event(), calendar_name="x") is None
+
+
+# --- CalDAVClient construction (lazy: no live server hit) -------------------
+
+
+def test_caldav_client_constructible_without_hitting_server() -> None:
+    """Lazy principal lookup means we can build the client cheaply."""
+
+    client = CalDAVClient(
+        caldav_url="http://localhost:5232/",
+        username="user",
+        password="pw",
+        calendar_names=["Personal"],
+    )
+    assert client._caldav_url == "http://localhost:5232/"
+
+
+async def test_caldav_client_aclose_is_safe() -> None:
+    client = CalDAVClient(caldav_url="http://x", username="u", password="p")
+    await client.aclose()
+
+
 async def test_handle_translates_client_error_to_value_error() -> None:
     class _ExplodingClient:
         async def fetch_events(
@@ -210,6 +311,4 @@ async def test_handle_translates_client_error_to_value_error() -> None:
 
     worker = CalendarReadWorker(bus=None, client=_ExplodingClient())  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="server unreachable"):
-        await worker.handle(
-            TaskDispatch(task_id="t", capability=CAPABILITY, payload={})
-        )
+        await worker.handle(TaskDispatch(task_id="t", capability=CAPABILITY, payload={}))

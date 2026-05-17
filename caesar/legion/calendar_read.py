@@ -113,7 +113,15 @@ class CalDAVClient:
         # caldav.DAVClient holds an httpx session; closing is sync.
         return None
 
-    def _principal_sync(self) -> Any:
+    # The methods below all delegate to the third-party ``caldav``
+    # library against a live CalDAV server. They're exercised
+    # manually against a real Nextcloud / Baikal / Radicale during
+    # development; CI doesn't run a CalDAV instance, so coverage
+    # would have to come from heavy library mocks that prove nothing
+    # about the real integration. Mark as pragma: no cover and
+    # cover the surface that *is* unit-testable (parsing, validation,
+    # normalisation, worker handler) in tests/test_calendar_read.py.
+    def _principal_sync(self) -> Any:  # pragma: no cover - needs live CalDAV
         if self._principal is None:
             import caldav
 
@@ -128,7 +136,7 @@ class CalDAVClient:
                 raise CalendarReadError(f"CalDAV principal lookup failed: {exc}") from exc
         return self._principal
 
-    def _selected_calendars_sync(self) -> list[Any]:
+    def _selected_calendars_sync(self) -> list[Any]:  # pragma: no cover - needs live CalDAV
         principal = self._principal_sync()
         try:
             calendars = principal.calendars()
@@ -139,7 +147,7 @@ class CalDAVClient:
         wanted = set(self._calendar_names)
         return [c for c in calendars if getattr(c, "name", None) in wanted]
 
-    def _fetch_events_sync(
+    def _fetch_events_sync(  # pragma: no cover - needs live CalDAV
         self, *, start: datetime, end: datetime, limit: int
     ) -> list[dict[str, Any]]:
         events: list[dict[str, Any]] = []
@@ -161,16 +169,14 @@ class CalDAVClient:
                     events.append(normalised)
         return events
 
-    async def fetch_events(
+    async def fetch_events(  # pragma: no cover - needs live CalDAV
         self,
         *,
         start: datetime,
         end: datetime,
         limit: int,
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
-            self._fetch_events_sync, start=start, end=end, limit=limit
-        )
+        return await asyncio.to_thread(self._fetch_events_sync, start=start, end=end, limit=limit)
 
 
 def _normalise_event(evt: Any, *, calendar_name: str) -> dict[str, Any] | None:
