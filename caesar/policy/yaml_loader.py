@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 SERVICE_PATTERN = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 ENTITY_ID_PATTERN = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
+TOOL_NAME_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 class PolicyRulesError(RuntimeError):
@@ -83,11 +84,34 @@ class AllowedServiceRule(BaseModel):
         return self.target is None or self.target.entity_id is None
 
 
+class AllowedToolRule(BaseModel):
+    """One row of ``allowed_tools`` after normalisation (ADR-0028).
+
+    Bare entries (``- tool: calculator``) allow any input. The
+    optional ``input`` block carries tool-specific constraints; the
+    YAML loader passes it through as a free-form dict and the
+    matcher for that tool decides what each key means.
+    """
+
+    tool: str
+    input: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("tool")
+    @classmethod
+    def _validate_tool(cls, value: str) -> str:
+        if not TOOL_NAME_PATTERN.fullmatch(value):
+            raise ValueError(
+                f"invalid tool name (expected snake_case identifier): {value!r}",
+            )
+        return value
+
+
 class RulesConfig(BaseModel):
     """Parsed shape of the policy YAML."""
 
     version: Annotated[int, Field(ge=1, le=1)]
     allowed_services: list[AllowedServiceRule] = Field(default_factory=list)
+    allowed_tools: list[AllowedToolRule] = Field(default_factory=list)
 
     @field_validator("allowed_services", mode="before")
     @classmethod
@@ -107,6 +131,31 @@ class RulesConfig(BaseModel):
             else:
                 raise ValueError(
                     f"unsupported allow-list entry (expected str or mapping): {entry!r}",
+                )
+        return normalised
+
+    @field_validator("allowed_tools", mode="before")
+    @classmethod
+    def _normalise_tool_entries(cls, value: Any) -> Any:
+        """Accept ``- tool: name`` mappings or bare strings.
+
+        Bare-string entries (``- calculator``) shorthand for
+        ``{tool: calculator}`` with no input constraints.
+        """
+
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValueError("allowed_tools must be a list")
+        normalised: list[Any] = []
+        for entry in value:
+            if isinstance(entry, str):
+                normalised.append({"tool": entry})
+            elif isinstance(entry, dict | AllowedToolRule):
+                normalised.append(entry)
+            else:
+                raise ValueError(
+                    f"unsupported allowed_tools entry (expected str or mapping): {entry!r}",
                 )
         return normalised
 
