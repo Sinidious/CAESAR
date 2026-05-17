@@ -172,6 +172,24 @@ export CAESAR_SERVER__HOST=10.0.0.5
 See [SECURITY-REVIEW.md](SECURITY-REVIEW.md) — gap SR-001 explains
 the trade-off and how it's mitigated by the loopback default.
 
+## Verifying a release
+
+Every published release ships a wheel and an sdist, both signed via
+GitHub's [Sigstore build provenance](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)
+attestation (SR-011). Operators who care about supply-chain hygiene
+can verify a downloaded artifact came from this repo's CI:
+
+```sh
+# After downloading caesar-0.X.0-py3-none-any.whl from the GitHub Release:
+gh attestation verify caesar-0.X.0-py3-none-any.whl \
+    --repo Sinidious/CAESAR
+```
+
+The verifier confirms the artifact's digest, the workflow that built
+it, and the repo / ref it was built from. Failure means either the
+file is tampered with, was built outside this repo, or your local
+`gh` CLI is too old (needs 2.49+).
+
 ## Where the data lives
 
 - `./var/caesar.sqlite3` — the durable store.

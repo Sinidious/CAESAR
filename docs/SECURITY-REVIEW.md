@@ -84,7 +84,7 @@ know?".
 | SR-008 | Low      | Audit-log row size is unbounded                                         | Closed | Per-string clamp at write (this branch, default 16KB) |
 | SR-009 | Low      | NATS bus has no auth in single-node default                             | Open   |           |
 | SR-010 | Low      | Dashboard responses lack `Content-Security-Policy` headers              | Closed | CSP + X-Frame-Options + nosniff middleware (this branch) |
-| SR-011 | Low      | Releases are unsigned (no Sigstore / cosign / SBOM attestation)         | Open   |           |
+| SR-011 | Low      | Releases are unsigned (no Sigstore / cosign / SBOM attestation)         | Closed | `actions/attest-build-provenance` on every release (this branch) |
 | SR-012 | Low      | LLM `system_prompt` override has no operator-visible warning             | Closed | Warning banner on settings page + structured warn log (this branch) |
 
 ### SR-001 — Unauthenticated `/v1/*` HTTP API
@@ -286,14 +286,27 @@ policy to `'self'`; tracked as a follow-up.
 
 ### SR-011 — Unsigned releases
 
-`pip install caesar` validates the wheel hash from PyPI, but the
-provenance chain stops there. No Sigstore signing, no SBOM
-artefact, no GitHub-attested provenance. Downstream operators
-can't verify a release came from this repo's CI.
+**Status: Closed.**
 
-Mitigation: enable [`actions/attest-build-provenance`](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)
-on the release workflow. Cheap; gives operators a verifiable
-chain.
+The release workflow now builds the wheel + sdist, generates a
+[Sigstore build-provenance attestation](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)
+via `actions/attest-build-provenance@v2`, and uploads both the
+artifacts and the attestation to the GitHub Release. Operators
+verify with:
+
+```sh
+gh attestation verify caesar-0.X.0-py3-none-any.whl \
+    --repo Sinidious/CAESAR
+```
+
+The verifier confirms the artifact's digest, the workflow that
+built it, and the ref it was built from. A tampered or
+out-of-repo artifact fails the check.
+
+Residual: PyPI uploads aren't wired yet (release-please publishes
+to GitHub Releases only). When PyPI publishing lands, the same
+attestation chain transfers via [PyPI's trusted publishers](https://docs.pypi.org/trusted-publishers/)
+with no extra workflow code.
 
 ### SR-012 — `system_prompt` override has no operator warning
 
