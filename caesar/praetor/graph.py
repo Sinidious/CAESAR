@@ -35,6 +35,7 @@ from caesar.ha.client import HAClient
 from caesar.ha.models import ServiceCall
 from caesar.legion.calculator import CAPABILITY as CALCULATOR_CAPABILITY
 from caesar.legion.registry import WorkerRegistry
+from caesar.legion.web_search import CAPABILITY as WEB_SEARCH_CAPABILITY
 from caesar.llm.gateway import (
     ChatMessage,
     ChatResponse,
@@ -151,6 +152,27 @@ CALCULATOR_TOOL = ToolDefinition(
 )
 
 
+WEB_SEARCH_TOOL = ToolDefinition(
+    name="web_search",
+    description=(
+        "Search the web through CAESAR's self-hosted SearXNG instance. "
+        "Use when you need current facts the model wouldn't know: "
+        'weather, news, opening hours, "what year did X release". '
+        "Returns the top N results as {title, url, snippet, domain}. "
+        "The Policy Engine may restrict which domains the operator "
+        "allows; surface denials to the user plainly."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "minLength": 1},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+        },
+        "required": ["query"],
+    },
+)
+
+
 def build_brain_graph(
     *,
     gateway: LLMGateway,
@@ -173,6 +195,8 @@ def build_brain_graph(
         tools.append(RECALL_SEMANTIC_TOOL)
     if registry is not None and registry.find(CALCULATOR_CAPABILITY):
         tools.append(CALCULATOR_TOOL)
+    if registry is not None and registry.find(WEB_SEARCH_CAPABILITY):
+        tools.append(WEB_SEARCH_TOOL)
 
     async def _handle_call_service(use: ToolUse, decision_id: str) -> ToolResult:
         try:
@@ -363,6 +387,15 @@ def build_brain_graph(
                                 decision_id,
                                 tool="calculator",
                                 capability=CALCULATOR_CAPABILITY,
+                            )
+                        )
+                    elif use.name == "web_search":
+                        results.append(
+                            await _handle_generic_tool(
+                                use,
+                                decision_id,
+                                tool="web_search",
+                                capability=WEB_SEARCH_CAPABILITY,
                             )
                         )
                     else:

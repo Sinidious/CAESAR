@@ -732,6 +732,108 @@ async def test_calculator_dispatch_worker_failure(
     assert rows[0]["payload"]["error"] == "invalid syntax"
 
 
+async def test_web_search_tool_registered_when_capability_present(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    """web_search shows up in the LLM tool list only when a worker
+    advertises tool.web_search."""
+
+    from caesar.policy.yaml_loader import AllowedToolRule
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(capabilities=["tool.web_search"])
+    policy = AllowlistPolicy(
+        RulesConfig(
+            version=1,
+            allowed_services=[],
+            allowed_tools=[AllowedToolRule(tool="web_search")],
+        )
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=policy,
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="what's the weather")],
+            "decision_id": "d-search-1",
+            "iteration": 0,
+        }
+    )
+    tools = fake_gateway.calls[0]["tools"] or []
+    assert any(t.name == "web_search" for t in tools)
+
+
+async def test_web_search_dispatch_success_path(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    """The brain dispatches web_search via _handle_generic_tool and
+    surfaces results to the LLM."""
+
+    from caesar.policy.yaml_loader import AllowedToolRule
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(
+        capabilities=["tool.web_search"],
+        dispatch_result={
+            "query": "homelab nas",
+            "results": [
+                {
+                    "title": "NAS guide",
+                    "url": "https://example.com/nas",
+                    "snippet": "...",
+                    "domain": "example.com",
+                }
+            ],
+        },
+    )
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[
+                ToolUse(id="tu_ws", name="web_search", input={"query": "homelab nas", "limit": 3}),
+            ],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(content="I found one.", model="fake-model", input_tokens=3, output_tokens=4)
+    )
+    policy = AllowlistPolicy(
+        RulesConfig(
+            version=1,
+            allowed_services=[],
+            allowed_tools=[AllowedToolRule(tool="web_search")],
+        )
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=policy,
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="search")],
+            "decision_id": "d-search-2",
+            "iteration": 0,
+        }
+    )
+    assert registry.dispatch_calls == [
+        ("tool.web_search", {"query": "homelab nas", "limit": 3}),
+    ]
+    tool_result = fake_gateway.calls[1]["messages"][-1].tool_results[0]
+    assert tool_result.is_error is False
+    assert "example.com" in tool_result.content
+
+
 async def test_iteration_cap_bails_out(
     fake_gateway: FakeGateway, engine: AsyncEngine, mock_ha: HAClient
 ) -> None:
