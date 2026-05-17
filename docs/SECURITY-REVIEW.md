@@ -78,7 +78,7 @@ know?".
 | SR-002 | Medium   | `/dashboard/login` has no rate-limit or lockout                         | Closed | In-memory sliding-window limiter (this branch) |
 | SR-003 | Medium   | `/metrics` is unauthenticated and exposes worker/event-type cardinality | Open   |           |
 | SR-004 | Medium   | Tool-result strings re-enter the LLM as user content (prompt-injection)| Open   |           |
-| SR-005 | Medium   | Allow-list policy does not constrain `target` / `data` parameters       | Open   |           |
+| SR-005 | Medium   | Allow-list policy does not constrain `target` / `data` parameters       | Mitigated | `entity_id` constraints (this branch); other target fields + `data` deferred |
 | SR-006 | Low      | Dashboard cookie is signed by the same key it authenticates             | Open   |           |
 | SR-007 | Low      | Dashboard session TTL is 30 days by default                             | Open   |           |
 | SR-008 | Low      | Audit-log row size is unbounded                                         | Open   |           |
@@ -165,22 +165,32 @@ brain graph uses that path).
 
 ### SR-005 — Allow-list policy doesn't constrain parameters
 
-`light.turn_on` allow-listed means *any* `light.turn_on` is
-permitted, including `{entity_id: "all"}`. An LLM that's prompt-injected
-into emitting "turn off every light" cannot be stopped by the
-current policy. The Pydantic model enforces shape, not values.
+**Status: Mitigated (entity_id).**
 
-Mitigation: extend `RulesConfig` to optionally pin
-`target.entity_id` per service. E.g.:
+`light.turn_on` allow-listed used to mean *any* `light.turn_on` was
+permitted, including `{entity_id: "all"}`. An LLM that's
+prompt-injected into emitting "turn off every light" couldn't be
+stopped by the policy.
+
+The schema now accepts an object form that pins
+`target.entity_id` per service:
 
 ```yaml
 allowed_services:
-  - service: light.turn_on
+  - light.turn_on                    # bare string: any params (compat)
+  - service: light.turn_off
     target:
       entity_id: [light.kitchen, light.living_room]
 ```
 
-Backward-compatible: bare-string entries keep current behaviour.
+Multiple entries for the same service union together (OR). A call
+that targets entities outside any rule's permitted set is denied.
+
+**Residual.** Other `target` fields (`device_id`, `area_id`,
+`label_id`, `floor_id`) and the `data` payload remain
+unconstrained. An operator can still gate behind `data` values
+(`brightness_pct`, `color`, etc.) only at the bare-string level.
+Tracked as a follow-up; will become its own SR-NNN row when raised.
 
 ### SR-006 — Dashboard signing key = auth token
 
