@@ -84,11 +84,6 @@ class Bus:
     async def subscribe(self, subject: str, cb: MessageHandler) -> Subscription:
         return await self._client().subscribe(subject, cb=cb)
 
-    async def reply(self, msg: Msg, payload: bytes) -> None:
-        """Convenience wrapper around :meth:`Msg.respond`."""
-
-        await msg.respond(payload)
-
     @property
     def raw(self) -> Any:
         """Escape hatch for code that genuinely needs the SDK object."""

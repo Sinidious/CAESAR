@@ -93,6 +93,20 @@ async def test_capabilities_view(bus: Bus, registry: WorkerRegistry) -> None:
         await worker.stop()
 
 
+async def test_find_returns_matching_workers(
+    bus: Bus, registry: WorkerRegistry
+) -> None:
+    worker = NoopWorker(bus)
+    await worker.start()
+    try:
+        await _wait_for(lambda: "noop" in registry.workers)
+        matches = registry.find("test.noop")
+        assert [w.worker_id for w in matches] == ["noop"]
+        assert registry.find("nonexistent.capability") == []
+    finally:
+        await worker.stop()
+
+
 async def test_start_idempotent(bus: Bus) -> None:
     r = WorkerRegistry(bus)
     await r.start()
