@@ -57,8 +57,7 @@ def verify_backup(source: Path) -> VerifyResult:
             integrity_row = conn.execute("PRAGMA integrity_check").fetchone()
             integrity = "" if integrity_row is None else str(integrity_row[0])
             tables = {
-                row[0]
-                for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             }
         except sqlite3.DatabaseError as exc:
             raise BackupError(
