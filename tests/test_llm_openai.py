@@ -277,5 +277,7 @@ async def test_live_openai_round_trip() -> None:  # pragma: no cover - live
         default_model="gpt-4o-mini",
         default_max_tokens=64,
     )
-    resp = await provider.complete([ChatMessage(role="user", content="Say 'pong' and nothing else.")])
+    resp = await provider.complete(
+        [ChatMessage(role="user", content="Say 'pong' and nothing else.")]
+    )
     assert "pong" in resp.content.lower()

@@ -57,9 +57,7 @@ def _tool_definitions_to_openai(tools: list[ToolDefinition]) -> list[dict[str, A
     ]
 
 
-def _messages_to_openai(
-    messages: list[ChatMessage], *, system: str | None
-) -> list[dict[str, Any]]:
+def _messages_to_openai(messages: list[ChatMessage], *, system: str | None) -> list[dict[str, Any]]:
     """Translate ChatMessage list into OpenAI's chat-completions shape.
 
     System content is hoisted to a leading ``role="system"`` message.
