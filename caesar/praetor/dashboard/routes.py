@@ -75,9 +75,7 @@ def build_router() -> APIRouter:
             )
         assert settings.token is not None
         cookie = make_session_cookie(settings.token.get_secret_value())
-        response = RedirectResponse(
-            url="/dashboard", status_code=status.HTTP_303_SEE_OTHER
-        )
+        response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
         response.set_cookie(
             settings.cookie_name,
             cookie,
@@ -89,9 +87,7 @@ def build_router() -> APIRouter:
 
     @router.post("/logout")
     async def post_logout(settings: SettingsDep) -> RedirectResponse:
-        response = RedirectResponse(
-            url="/dashboard/login", status_code=status.HTTP_303_SEE_OTHER
-        )
+        response = RedirectResponse(url="/dashboard/login", status_code=status.HTTP_303_SEE_OTHER)
         response.delete_cookie(settings.cookie_name)
         return response
 
@@ -106,11 +102,7 @@ def build_router() -> APIRouter:
         settings: SettingsDep,
         engine: EngineDep,
     ) -> HTMLResponse:
-        stmt = (
-            select(audit_log)
-            .order_by(desc(audit_log.c.id))
-            .limit(settings.history_limit)
-        )
+        stmt = select(audit_log).order_by(desc(audit_log.c.id)).limit(settings.history_limit)
         async with engine.connect() as conn:
             rows = (await conn.execute(stmt)).mappings().all()
         items = [
