@@ -465,6 +465,273 @@ async def test_recall_memory_failure_propagates_as_error_result(
         await worker.stop()
 
 
+class _FakeRegistry:
+    """Minimal stub satisfying the brain graph's WorkerRegistry contract."""
+
+    def __init__(
+        self,
+        *,
+        capabilities: list[str],
+        dispatch_result: dict[str, object] | None = None,
+        dispatch_success: bool = True,
+        dispatch_error: str | None = None,
+    ) -> None:
+        from caesar.legion.protocol import WorkerRegistration
+
+        self._capabilities = capabilities
+        self._dispatch_result = dispatch_result
+        self._dispatch_success = dispatch_success
+        self._dispatch_error = dispatch_error
+        self._registration = WorkerRegistration(
+            worker_id="fake",
+            capabilities=capabilities,
+            version="0.0.0",
+        )
+        self.dispatch_calls: list[tuple[str, dict[str, Any]]] = []
+
+    def find(self, capability: str) -> list[Any]:
+        return [self._registration] if capability in self._capabilities else []
+
+    async def dispatch(
+        self,
+        capability: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        timeout: float | None = None,
+        decision_id: str | None = None,
+    ) -> Any:
+        from caesar.legion.protocol import TaskResult
+
+        self.dispatch_calls.append((capability, payload or {}))
+        return TaskResult(
+            task_id="t",
+            worker_id="fake",
+            success=self._dispatch_success,
+            result=self._dispatch_result if self._dispatch_success else None,
+            error=self._dispatch_error,
+        )
+
+
+def _allow_calculator_policy() -> Policy:
+    from caesar.policy.yaml_loader import AllowedToolRule
+
+    return AllowlistPolicy(
+        RulesConfig(
+            version=1,
+            allowed_services=[],
+            allowed_tools=[AllowedToolRule(tool="calculator")],
+        )
+    )
+
+
+async def test_calculator_tool_registered_when_capability_present(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    """The calculator tool only shows up when a worker advertises it."""
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(capabilities=["tool.calculator"])
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=_allow_calculator_policy(),
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="what is 1+1")],
+            "decision_id": "d-cap-1",
+            "iteration": 0,
+        }
+    )
+    tools = fake_gateway.calls[0]["tools"] or []
+    assert any(t.name == "calculator" for t in tools)
+
+
+async def test_calculator_dispatch_success_path(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    """Allowed call → dispatched, result returned, tool.called audited."""
+
+    from sqlalchemy import desc, select
+
+    from caesar.db.schema import audit_log
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(
+        capabilities=["tool.calculator"],
+        dispatch_result={"expression": "1+1", "value": 2.0},
+    )
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[
+                ToolUse(id="tu_calc", name="calculator", input={"expression": "1+1"}),
+            ],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(
+            content="The answer is 2.", model="fake-model", input_tokens=3, output_tokens=4
+        )
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=_allow_calculator_policy(),
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="what is 1+1")],
+            "decision_id": "d-calc-1",
+            "iteration": 0,
+        }
+    )
+    assert registry.dispatch_calls == [("tool.calculator", {"expression": "1+1"})]
+    tool_result = fake_gateway.calls[1]["messages"][-1].tool_results[0]
+    assert tool_result.is_error is False
+    assert "2.0" in tool_result.content or '"value": 2' in tool_result.content
+
+    async with engine.connect() as conn:
+        rows = (
+            (
+                await conn.execute(
+                    select(audit_log)
+                    .where(audit_log.c.event_type == "tool.called")
+                    .order_by(desc(audit_log.c.id))
+                )
+            )
+            .mappings()
+            .all()
+        )
+    assert len(rows) == 1
+    assert rows[0]["payload"]["tool"] == "calculator"
+    assert rows[0]["payload"]["success"] is True
+
+
+async def test_calculator_dispatch_denied_by_policy(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    """When the policy denies, the worker is never called and tool.denied lands in the audit log."""
+
+    from sqlalchemy import select
+
+    from caesar.db.schema import audit_log
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(
+        capabilities=["tool.calculator"],
+        dispatch_result={"expression": "1+1", "value": 2.0},
+    )
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[
+                ToolUse(id="tu_calc", name="calculator", input={"expression": "1+1"}),
+            ],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(content="Cannot.", model="fake-model", input_tokens=3, output_tokens=4)
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=DenyAllPolicy(),  # nothing allowed
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="?")],
+            "decision_id": "d-calc-2",
+            "iteration": 0,
+        }
+    )
+    assert registry.dispatch_calls == []  # worker never asked
+    tool_result = fake_gateway.calls[1]["messages"][-1].tool_results[0]
+    assert tool_result.is_error is True
+    assert "Denied" in tool_result.content
+
+    async with engine.connect() as conn:
+        rows = (
+            (await conn.execute(select(audit_log).where(audit_log.c.event_type == "tool.denied")))
+            .mappings()
+            .all()
+        )
+    assert len(rows) == 1
+    assert rows[0]["payload"]["tool"] == "calculator"
+
+
+async def test_calculator_dispatch_worker_failure(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    """When the worker raises, tool.called(success=False) is logged and the LLM sees the error."""
+
+    from sqlalchemy import select
+
+    from caesar.db.schema import audit_log
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(
+        capabilities=["tool.calculator"],
+        dispatch_success=False,
+        dispatch_error="invalid syntax",
+    )
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[
+                ToolUse(id="tu_bad", name="calculator", input={"expression": "1 +"}),
+            ],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(content="Sorry.", model="fake-model", input_tokens=3, output_tokens=4)
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=_allow_calculator_policy(),
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="bad")],
+            "decision_id": "d-calc-3",
+            "iteration": 0,
+        }
+    )
+    tool_result = fake_gateway.calls[1]["messages"][-1].tool_results[0]
+    assert tool_result.is_error is True
+    assert "invalid syntax" in tool_result.content
+    async with engine.connect() as conn:
+        rows = (
+            (await conn.execute(select(audit_log).where(audit_log.c.event_type == "tool.called")))
+            .mappings()
+            .all()
+        )
+    assert len(rows) == 1
+    assert rows[0]["payload"]["success"] is False
+    assert rows[0]["payload"]["error"] == "invalid syntax"
+
+
 async def test_iteration_cap_bails_out(
     fake_gateway: FakeGateway, engine: AsyncEngine, mock_ha: HAClient
 ) -> None:

@@ -20,6 +20,7 @@ from caesar.db.audit import AuditLogger
 from caesar.db.engine import create_engine
 from caesar.db.settings_store import SettingsStore
 from caesar.ha.client import HAClient
+from caesar.legion.calculator import CalculatorWorker
 from caesar.legion.memory_recall import MemoryRecallWorker
 from caesar.legion.registry import WorkerRegistry
 from caesar.legion.semantic_recall import SemanticRecallWorker
@@ -194,6 +195,8 @@ def _build_inprocess_worker(
             default_limit=settings.semantic.top_k_default,
             max_limit=settings.semantic.top_k_max,
         )
+    if name == "calculator":
+        return CalculatorWorker(bus)
     raise ValueError(f"unknown in-process worker: {name!r}")
 
 
