@@ -71,7 +71,14 @@ class ChatResponse(BaseModel):
 
 
 class LLMGateway(Protocol):
-    """Async chat-completion contract every provider must satisfy."""
+    """Async chat-completion contract every provider must satisfy.
+
+    ``task`` is an optional routing hint consumed only by
+    :class:`caesar.llm.router.TaskRouter`. Concrete provider
+    implementations accept the kwarg for signature compatibility but
+    ignore it — the router has already picked the right backend by
+    the time it dispatches to a leaf provider.
+    """
 
     async def complete(
         self,
@@ -81,6 +88,7 @@ class LLMGateway(Protocol):
         model: str | None = None,
         max_tokens: int | None = None,
         tools: list[ToolDefinition] | None = None,
+        task: str | None = None,
     ) -> ChatResponse:
         """Return the assistant's reply for the given conversation."""
         ...

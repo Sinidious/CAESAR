@@ -142,7 +142,9 @@ class OllamaProvider:
         model: str | None = None,
         max_tokens: int | None = None,
         tools: list[ToolDefinition] | None = None,
+        task: str | None = None,
     ) -> ChatResponse:
+        del task  # routing hint; only TaskRouter uses it
         used_model = model or self._default_model
         used_max_tokens = max_tokens or self._default_max_tokens
 

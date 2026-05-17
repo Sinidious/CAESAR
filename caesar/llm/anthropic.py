@@ -85,7 +85,9 @@ class AnthropicProvider:
         model: str | None = None,
         max_tokens: int | None = None,
         tools: list[ToolDefinition] | None = None,
+        task: str | None = None,
     ) -> ChatResponse:
+        del task  # routing hint; only TaskRouter uses it
         system_parts: list[str] = [system] if system else []
         chat_messages: list[dict[str, Any]] = []
         for m in messages:
