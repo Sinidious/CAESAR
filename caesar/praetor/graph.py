@@ -45,6 +45,7 @@ from caesar.llm.gateway import (
 from caesar.log import bind_decision, get_logger
 from caesar.policy.engine import Policy
 from caesar.praetor.dispatch import dispatch_service_call
+from caesar.praetor.safety import compose_system_prompt
 from caesar.tracing import span
 
 MAX_ITERATIONS_DEFAULT = 5
@@ -225,7 +226,7 @@ def build_brain_graph(
             ):
                 response = await gateway.complete(
                     state.get("messages", []),
-                    system=state.get("system"),
+                    system=compose_system_prompt(state.get("system")),
                     model=state.get("model"),
                     tools=tools or None,
                 )
