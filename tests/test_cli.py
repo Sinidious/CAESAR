@@ -103,3 +103,72 @@ def test_memory_sweep_apply(runner: CliRunner, monkeypatch: pytest.MonkeyPatch, 
     reset_settings_cache()
     assert result.exit_code == 0, result.stdout
     assert "deleted 0" in result.stdout
+
+
+def test_db_backup_round_trip(runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path):
+    from caesar.config import reset_settings_cache
+    from caesar.db.migrate import upgrade_to_head
+
+    src = tmp_path / "live.sqlite3"
+    upgrade_to_head(f"sqlite+aiosqlite:///{src}")
+    monkeypatch.setenv("CAESAR_DB__URL", f"sqlite+aiosqlite:///{src}")
+    reset_settings_cache()
+
+    snap = tmp_path / "snap.sqlite3"
+    result = runner.invoke(app, ["db", "backup", "--to", str(snap)])
+    reset_settings_cache()
+    assert result.exit_code == 0, result.stdout
+    assert snap.is_file()
+    assert "Backed up" in result.stdout
+
+
+def test_db_backup_refuses_existing_without_overwrite(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path
+):
+    from caesar.config import reset_settings_cache
+    from caesar.db.migrate import upgrade_to_head
+
+    src = tmp_path / "live.sqlite3"
+    upgrade_to_head(f"sqlite+aiosqlite:///{src}")
+    monkeypatch.setenv("CAESAR_DB__URL", f"sqlite+aiosqlite:///{src}")
+    reset_settings_cache()
+
+    snap = tmp_path / "snap.sqlite3"
+    snap.write_bytes(b"existing")
+    result = runner.invoke(app, ["db", "backup", "--to", str(snap)])
+    reset_settings_cache()
+    assert result.exit_code != 0
+    assert "exists" in result.stdout or "exists" in result.output
+
+
+def test_db_restore_replaces_dest(runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path):
+    from caesar.config import reset_settings_cache
+    from caesar.db.migrate import upgrade_to_head
+
+    src = tmp_path / "snap.sqlite3"
+    upgrade_to_head(f"sqlite+aiosqlite:///{src}")
+    dest = tmp_path / "live.sqlite3"
+    monkeypatch.setenv("CAESAR_DB__URL", f"sqlite+aiosqlite:///{dest}")
+    reset_settings_cache()
+
+    result = runner.invoke(app, ["db", "restore", "--from", str(src)])
+    reset_settings_cache()
+    assert result.exit_code == 0, result.stdout
+    assert dest.is_file()
+    assert "Restored" in result.stdout
+
+
+def test_db_restore_refuses_invalid_source(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path
+):
+    from caesar.config import reset_settings_cache
+
+    bad = tmp_path / "bad.sqlite3"
+    bad.write_bytes(b"not a db")
+    dest = tmp_path / "live.sqlite3"
+    monkeypatch.setenv("CAESAR_DB__URL", f"sqlite+aiosqlite:///{dest}")
+    reset_settings_cache()
+
+    result = runner.invoke(app, ["db", "restore", "--from", str(bad)])
+    reset_settings_cache()
+    assert result.exit_code != 0
