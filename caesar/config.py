@@ -27,13 +27,47 @@ class DatabaseSettings(BaseModel):
     echo: bool = False
 
 
-class LLMSettings(BaseModel):
-    """LLM gateway configuration (ADR-0011)."""
+LLMProvider = Literal["anthropic", "openai"]
+
+
+class AnthropicProviderSettings(BaseModel):
+    """Anthropic-specific gateway configuration (ADR-0026)."""
 
     api_key: SecretStr | None = None
+
+
+class OpenAIProviderSettings(BaseModel):
+    """OpenAI-specific gateway configuration (ADR-0026).
+
+    ``base_url`` lets operators point the client at Azure-OpenAI or
+    any other OpenAI-compatible endpoint (vLLM, LiteLLM proxy,
+    Together, etc.). When unset the official OpenAI base is used.
+    """
+
+    api_key: SecretStr | None = None
+    base_url: str | None = None
+
+
+class LLMSettings(BaseModel):
+    """LLM gateway configuration (ADR-0011, extended by ADR-0026)."""
+
+    # ADR-0026: which provider implementation is wired by default.
+    provider: LLMProvider = "anthropic"
+    # Default model identifier passed to the chosen provider. Operators
+    # set both ``provider`` and ``model`` together to switch backends.
     model: str = "claude-haiku-4-5-20251001"
     system_prompt: str = "You are CAESAR, a self-hosted homelab AI assistant. Be concise."
     max_tokens: int = 1024
+
+    # Backward-compat: pre-v1.1 deployments set ``CAESAR_LLM__API_KEY``
+    # at the top level. It still works and is treated as the Anthropic
+    # key when ``provider == "anthropic"`` and the nested
+    # ``anthropic.api_key`` is unset. Slated for removal in v2.x.
+    api_key: SecretStr | None = None
+
+    # Per-provider sub-settings (ADR-0026).
+    anthropic: AnthropicProviderSettings = Field(default_factory=AnthropicProviderSettings)
+    openai: OpenAIProviderSettings = Field(default_factory=OpenAIProviderSettings)
 
 
 class LogSettings(BaseModel):
