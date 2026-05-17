@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}CAESAR — audit log{% endblock %}
+{% block content %}
+  <section class="audit">
+    <h2>Live audit</h2>
+    <p class="hint">Newest events appear at the top.</p>
+    <div
+      id="audit-rows"
+      hx-get="/dashboard/audit"
+      hx-trigger="load"
+      hx-swap="innerHTML"
+    >
+      <p>Loading…</p>
+    </div>
+  </section>
+  <script>
+    (function () {
+      var live = document.getElementById('audit-rows');
+      if (!live || typeof EventSource === 'undefined') return;
+      var stream = new EventSource('/dashboard/audit/stream');
+      stream.addEventListener('audit', function (msg) {
+        var ev = JSON.parse(msg.data);
+        var row = document.createElement('div');
+        row.className = 'audit-row new';
+        var payload = JSON.stringify(ev.payload || {}).slice(0, 200);
+        row.innerHTML =
+          '<span class="ts">' + ev.ts + '</span> ' +
+          '<span class="event">' + ev.event_type + '</span> ' +
+          '<span class="id">#' + ev.id + '</span> ' +
+          '<pre class="payload">' + payload + '</pre>';
+        live.insertBefore(row, live.firstChild);
+      });
+    })();
+  </script>
+{% endblock %}

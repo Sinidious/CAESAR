@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from caesar import __version__
@@ -31,6 +32,9 @@ from caesar.memory.semantic import SemanticIndexer
 from caesar.policy.allowlist import AllowlistPolicy
 from caesar.policy.engine import DenyAllPolicy, Policy
 from caesar.policy.yaml_loader import load_rules
+from caesar.praetor.audit_bus import AuditEventBus
+from caesar.praetor.dashboard import build_router as build_dashboard_router
+from caesar.praetor.dashboard.routes import STATIC_DIR as DASHBOARD_STATIC_DIR
 from caesar.praetor.middleware import request_id_middleware
 from caesar.praetor.routes import chat, devices, health
 
@@ -144,7 +148,8 @@ def create_app(
     policy = policy if policy is not None else _default_policy(settings)
     bus = bus if bus is not None else _default_bus(settings)
     registry = WorkerRegistry(bus) if bus is not None else None
-    audit = AuditLogger(engine)
+    audit_bus = AuditEventBus()
+    audit = AuditLogger(engine, bus=audit_bus)
     sweeper = RetentionSweeper(
         engine,
         audit,
@@ -228,9 +233,17 @@ def create_app(
     app.state.sweeper = sweeper
     app.state.embedder = embedder
     app.state.semantic_indexer = semantic_indexer
+    app.state.audit_bus = audit_bus
 
     app.middleware("http")(request_id_middleware)
     app.include_router(health.router)
     app.include_router(chat.router)
     app.include_router(devices.router)
+    if settings.dashboard.token is not None:
+        app.include_router(build_dashboard_router())
+        app.mount(
+            "/dashboard/static",
+            StaticFiles(directory=DASHBOARD_STATIC_DIR),
+            name="dashboard-static",
+        )
     return app
