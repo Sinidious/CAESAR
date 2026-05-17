@@ -12,7 +12,7 @@ from caesar.config import CaesarSettings
 from caesar.db.schema import audit_log
 from caesar.ha.client import HAClient
 from caesar.ha.models import ServiceCall
-from caesar.policy.engine import DenyAllPolicy, Policy, PolicyDecision
+from caesar.policy.engine import DenyAllPolicy, Policy, PolicyDecision, ToolCall
 
 
 async def test_get_devices_when_ha_unconfigured_is_503(client: AsyncClient) -> None:
@@ -134,7 +134,7 @@ def test_default_policy_is_deny_all_stub(settings: CaesarSettings, engine: Async
 class _OpenPolicy:
     """Mirror Policy implementations: same interface, different decision."""
 
-    def evaluate(self, call: ServiceCall) -> PolicyDecision:
+    def evaluate(self, call: ToolCall) -> PolicyDecision:
         return PolicyDecision(allowed=True, reason="open")
 
 

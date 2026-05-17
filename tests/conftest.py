@@ -16,10 +16,9 @@ from caesar.config import CaesarSettings, DatabaseSettings, LLMSettings, LogSett
 from caesar.db.engine import create_engine
 from caesar.db.migrate import upgrade_to_head
 from caesar.ha.client import HAClient
-from caesar.ha.models import ServiceCall
 from caesar.legion.registry import WorkerRegistry
 from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway, ToolDefinition
-from caesar.policy.engine import Policy, PolicyDecision
+from caesar.policy.engine import Policy, PolicyDecision, ToolCall
 from tests.fakebus import find_nats_binary, spawn_nats
 from tests.fakeha import VALID_TOKEN, make_rest_app
 
@@ -119,7 +118,7 @@ def gateway_protocol(fake_gateway: FakeGateway) -> LLMGateway:
 class AllowAllPolicy:
     """Permissive policy used in route tests that exercise the happy path."""
 
-    def evaluate(self, call: ServiceCall) -> PolicyDecision:
+    def evaluate(self, call: ToolCall) -> PolicyDecision:
         return PolicyDecision(allowed=True, reason="test: allow-all")
 
 
