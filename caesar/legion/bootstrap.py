@@ -68,6 +68,12 @@ class WorkerIdentity:
                     "{self.reply_subject_glob}",
                   ],
                 }},
+                # NATS request/reply uses a temporary _INBOX.>
+                # subject for the reply. allow_responses grants the
+                # worker a one-shot publish permission on it when it
+                # answers a Praetor request — without this,
+                # msg.respond() is silently dropped.
+                allow_responses: true,
               }},
             }}"""
         )

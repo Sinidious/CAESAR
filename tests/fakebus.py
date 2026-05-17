@@ -117,6 +117,12 @@ def spawn_nats_with_nkey_auth(
                     "{worker_reply_subject}",
                   ],
                 }},
+                # NATS request/reply uses a temporary _INBOX.> subject
+                # for the reply; allow_responses grants the worker a
+                # one-shot publish permission on it when it answers a
+                # request. Without this, msg.respond() is silently
+                # dropped and Praetor's request times out.
+                allow_responses: true,
               }},
             }},
           ]
@@ -141,9 +147,7 @@ def spawn_nats_with_nkey_auth(
         except TimeoutError as exc:
             stderr_file.seek(0)
             stderr_text = stderr_file.read().decode("utf-8", errors="replace")
-            raise TimeoutError(
-                f"{exc}\nconfig was:\n{conf}\nstderr was:\n{stderr_text}"
-            ) from None
+            raise TimeoutError(f"{exc}\nconfig was:\n{conf}\nstderr was:\n{stderr_text}") from None
         yield f"nats://127.0.0.1:{port}"
     finally:
         proc.terminate()

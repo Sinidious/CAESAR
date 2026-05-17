@@ -56,6 +56,10 @@ human-friendly worker label goes in a comment above each entry:
                          "caesar.reply.<name>.>"] },
     subscribe: { allow: ["caesar.dispatch.>",
                          "caesar.reply.<name>.>"] },
+    # NATS request/reply uses a temporary _INBOX.> subject;
+    # allow_responses grants the worker a one-shot publish
+    # permission on it when answering a Praetor request.
+    allow_responses: true,
   },
 }
 ```

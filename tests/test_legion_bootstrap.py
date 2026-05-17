@@ -51,7 +51,7 @@ def test_nats_users_block_contains_nkey_and_label() -> None:
     # NATS rejects user: alongside nkey:, so the worker label flows
     # into a comment rather than a field.
     assert "# caesar-worker-kitchen-pi" in block
-    assert 'user:' not in block
+    assert "user:" not in block
     assert f'nkey: "{identity.public_key}"' in block
     # Subject permissions are scoped to this worker.
     assert "caesar.reply.kitchen-pi.>" in block
