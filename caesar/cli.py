@@ -8,6 +8,7 @@ the system lands:
     caesar memory sweep      # one-shot retention sweep
     caesar db backup         # hot-safe SQLite snapshot
     caesar db restore        # replace the live DB with a snapshot
+    caesar legion new-worker # mint an NKEY for a new Legion worker
 """
 
 from __future__ import annotations
@@ -31,6 +32,9 @@ app.add_typer(memory_app, name="memory")
 
 db_app = typer.Typer(help="Database maintenance commands.", no_args_is_help=True)
 app.add_typer(db_app, name="db")
+
+legion_app = typer.Typer(help="Legion (worker pool) commands.", no_args_is_help=True)
+app.add_typer(legion_app, name="legion")
 
 
 @praetor_app.command("serve")
@@ -168,6 +172,27 @@ def db_restore(
     except BackupError as exc:
         raise typer.BadParameter(str(exc)) from exc
     typer.echo(f"Restored {source} → {dest}")
+
+
+@legion_app.command("new-worker")
+def legion_new_worker(
+    name: Annotated[
+        str,
+        typer.Option(help="Short identifier used in the nats-server config block."),
+    ],
+) -> None:
+    """Mint a fresh NKEY identity for a new Legion worker (ADR-0027).
+
+    Prints the seed (save it on the worker host), the public key
+    (paste it into ``nats-server.conf``), a copy-pasteable
+    ``authorization.users`` block, and the env vars the worker
+    process needs to authenticate.
+    """
+
+    from caesar.legion.bootstrap import generate_worker_identity
+
+    identity = generate_worker_identity(name=name)
+    typer.echo(identity.format_for_operator())
 
 
 if __name__ == "__main__":  # pragma: no cover
