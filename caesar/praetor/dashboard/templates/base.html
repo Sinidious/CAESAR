@@ -15,6 +15,11 @@
     <header>
       <h1><a href="/dashboard">CAESAR</a></h1>
       {% if request.cookies.get('caesar_dashboard') %}
+        <nav class="dashboard-nav">
+          <a href="/dashboard">audit</a>
+          <a href="/dashboard/intents">intents</a>
+          <a href="/dashboard/agents">agents</a>
+        </nav>
         <form method="post" action="/dashboard/logout" class="inline">
           <button type="submit">log out</button>
         </form>

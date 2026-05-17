@@ -109,3 +109,133 @@ main {
 .inline {
   display: inline;
 }
+
+.dashboard-nav {
+  display: flex;
+  gap: 0.85rem;
+}
+
+.dashboard-nav a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9em;
+}
+
+.intents .intent {
+  margin: 0.75rem 0;
+  border-left: 3px solid var(--accent);
+  padding: 0.4rem 0.6rem;
+  background: rgba(127, 127, 127, 0.06);
+}
+
+.intents summary {
+  cursor: pointer;
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.intents summary .ts {
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.82em;
+}
+
+.intents summary .msg {
+  flex: 1;
+  font-weight: 500;
+}
+
+.intents summary .id {
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.82em;
+}
+
+.intents .reply {
+  margin: 0.5rem 0 0.25rem;
+  color: var(--accent);
+  font-style: italic;
+}
+
+.intents .trace {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.intents .trace li {
+  padding: 0.2rem 0;
+  display: grid;
+  grid-template-columns: 12rem 1fr 4rem;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.intents .trace .ts {
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.78em;
+}
+
+.intents .trace .event {
+  font-weight: 600;
+}
+
+.intents .trace .id {
+  color: var(--muted);
+  text-align: right;
+  font-size: 0.78em;
+}
+
+.intents .trace .payload {
+  grid-column: 1 / -1;
+  margin: 0.2rem 0 0;
+  padding: 0.3rem 0.5rem;
+  background: rgba(127, 127, 127, 0.08);
+  border-radius: 3px;
+  font-size: 0.78em;
+  white-space: pre-wrap;
+}
+
+.agents h2 {
+  margin-top: 1.25rem;
+}
+
+.agents-table,
+.dispatches-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88em;
+}
+
+.agents-table th,
+.dispatches-table th {
+  text-align: left;
+  border-bottom: 1px solid var(--muted);
+  padding: 0.35rem 0.4rem;
+  font-weight: 600;
+}
+
+.agents-table td,
+.dispatches-table td {
+  border-bottom: 1px solid rgba(127, 127, 127, 0.15);
+  padding: 0.3rem 0.4rem;
+  vertical-align: top;
+}
+
+.dispatches-table tr.fail td {
+  color: crimson;
+}
+
+.cap {
+  display: inline-block;
+  margin: 0 0.2rem 0.2rem 0;
+  padding: 0 0.35rem;
+  background: rgba(127, 127, 127, 0.12);
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.muted {
+  color: var(--muted);
+}

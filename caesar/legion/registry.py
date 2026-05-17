@@ -23,6 +23,7 @@ from nats.aio.msg import Msg
 from nats.aio.subscription import Subscription
 
 from caesar.bus.client import Bus
+from caesar.db.audit import AuditLogger
 from caesar.legion.protocol import (
     REGISTRATION_SUBJECT,
     TaskDispatch,
@@ -40,9 +41,16 @@ class NoWorkerAvailableError(RuntimeError):
 class WorkerRegistry:
     """Tracks registered workers and routes dispatches to them."""
 
-    def __init__(self, bus: Bus, *, default_timeout: float = 5.0) -> None:
+    def __init__(
+        self,
+        bus: Bus,
+        *,
+        default_timeout: float = 5.0,
+        audit: AuditLogger | None = None,
+    ) -> None:
         self._bus = bus
         self._default_timeout = default_timeout
+        self._audit = audit
         self._workers: dict[str, WorkerRegistration] = {}
         self._rr: dict[str, itertools.cycle[str]] = {}
         self._sub: Subscription | None = None
@@ -105,8 +113,14 @@ class WorkerRegistry:
         payload: dict[str, Any] | None = None,
         *,
         timeout: float | None = None,
+        decision_id: str | None = None,
     ) -> TaskResult:
-        """Send one task to a worker and await its reply."""
+        """Send one task to a worker and await its reply.
+
+        When the registry was constructed with an :class:`AuditLogger`,
+        each dispatch writes one ``legion.dispatched`` audit row tying
+        the call to its calling decision (if known).
+        """
 
         worker_id = self._pick(capability)
         task = TaskDispatch(
@@ -132,6 +146,18 @@ class WorkerRegistry:
             worker_id=worker_id,
             success=result.success,
         )
+        if self._audit is not None:
+            await self._audit.record(
+                "legion.dispatched",
+                {
+                    "decision_id": decision_id,
+                    "task_id": task.task_id,
+                    "capability": capability,
+                    "worker_id": worker_id,
+                    "success": result.success,
+                    "error": result.error,
+                },
+            )
         return result
 
     def capabilities(self) -> Iterable[str]:

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}CAESAR — agents{% endblock %}
+{% block content %}
+  <section class="agents">
+    <h2>Registered workers</h2>
+    {% if not bus_enabled %}
+      <p class="hint">Bus disabled. Set <code>CAESAR_BUS__ENABLED=true</code> and start <code>nats-server</code> to bring workers online.</p>
+    {% endif %}
+    {% if not agents %}
+      <p class="empty">No workers currently registered.</p>
+    {% else %}
+      <table class="agents-table">
+        <thead>
+          <tr><th>Worker</th><th>Version</th><th>Capabilities</th></tr>
+        </thead>
+        <tbody>
+          {% for agent in agents %}
+            <tr>
+              <td><code>{{ agent.worker_id }}</code></td>
+              <td>{{ agent.version }}</td>
+              <td>
+                {% for cap in agent.capabilities %}
+                  <code class="cap">{{ cap }}</code>
+                {% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    <h2>Recent dispatches</h2>
+    {% if not dispatches %}
+      <p class="empty">No dispatch history yet.</p>
+    {% else %}
+      <table class="dispatches-table">
+        <thead>
+          <tr><th>Time</th><th>Worker</th><th>Capability</th><th>Task</th><th>OK</th><th>Decision</th></tr>
+        </thead>
+        <tbody>
+          {% for d in dispatches %}
+            <tr class="{{ 'ok' if d.success else 'fail' }}">
+              <td class="ts">{{ d.ts }}</td>
+              <td><code>{{ d.worker_id }}</code></td>
+              <td><code>{{ d.capability }}</code></td>
+              <td><code>{{ d.task_id[:8] }}</code></td>
+              <td>{{ '✓' if d.success else '✗' }}</td>
+              <td>
+                {% if d.decision_id %}
+                  <code>{{ d.decision_id[:8] }}</code>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+{% endblock %}

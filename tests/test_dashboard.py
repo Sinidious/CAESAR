@@ -166,6 +166,85 @@ async def test_audit_stream_requires_auth(dashboard_client: AsyncClient) -> None
     assert r.status_code == 401
 
 
+async def test_intents_requires_auth(dashboard_client: AsyncClient) -> None:
+    r = await dashboard_client.get("/dashboard/intents")
+    assert r.status_code == 401
+
+
+async def test_intents_empty_state(dashboard_client: AsyncClient) -> None:
+    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    r = await dashboard_client.get("/dashboard/intents")
+    assert r.status_code == 200
+    assert "No intents yet" in r.text
+
+
+async def test_intents_renders_grouped_events(
+    dashboard_client: AsyncClient, engine: AsyncEngine
+) -> None:
+    audit = AuditLogger(engine)
+    await audit.record(
+        "chat.completed",
+        {
+            "decision_id": "d-int",
+            "messages": [{"role": "user", "content": "turn it on"}],
+            "reply": "Done.",
+        },
+    )
+    await audit.record(
+        "service.called",
+        {"decision_id": "d-int", "domain": "light", "service": "turn_on"},
+    )
+    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    r = await dashboard_client.get("/dashboard/intents")
+    assert r.status_code == 200
+    assert "turn it on" in r.text
+    assert "service.called" in r.text
+
+
+async def test_agents_requires_auth(dashboard_client: AsyncClient) -> None:
+    r = await dashboard_client.get("/dashboard/agents")
+    assert r.status_code == 401
+
+
+async def test_agents_empty_when_bus_disabled(
+    dashboard_client: AsyncClient,
+) -> None:
+    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    r = await dashboard_client.get("/dashboard/agents")
+    assert r.status_code == 200
+    assert "Bus disabled" in r.text
+
+
+async def test_agents_shows_dispatch_history(
+    dashboard_client: AsyncClient, engine: AsyncEngine
+) -> None:
+    audit = AuditLogger(engine)
+    await audit.record(
+        "legion.dispatched",
+        {
+            "decision_id": "d-A",
+            "task_id": "abcdef1234567890",
+            "capability": "memory.recall",
+            "worker_id": "memory_recall",
+            "success": True,
+            "error": None,
+        },
+    )
+    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    r = await dashboard_client.get("/dashboard/agents")
+    assert r.status_code == 200
+    assert "memory.recall" in r.text
+    assert "abcdef12" in r.text  # truncated task id
+
+
+async def test_home_nav_links_present(dashboard_client: AsyncClient) -> None:
+    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    r = await dashboard_client.get("/dashboard")
+    assert r.status_code == 200
+    assert "/dashboard/intents" in r.text
+    assert "/dashboard/agents" in r.text
+
+
 # End-to-end SSE streaming through httpx ASGITransport doesn't work — the
 # transport buffers the entire response. The streaming is verified by
 # AuditEventBus unit tests + the auth check above; full e2e with real

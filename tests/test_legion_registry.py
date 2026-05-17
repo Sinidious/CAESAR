@@ -127,3 +127,35 @@ async def test_bad_registration_is_ignored(bus: Bus, registry: WorkerRegistry) -
     valid = WorkerRegistration(worker_id="valid", capabilities=["c"], version="0.0.1")
     await bus.publish(REGISTRATION_SUBJECT, valid.model_dump_json().encode())
     await _wait_for(lambda: "valid" in registry.workers)
+
+
+async def test_dispatch_writes_audit_row(bus: Bus, engine) -> None:
+    """When constructed with an AuditLogger, dispatch writes legion.dispatched."""
+
+    from sqlalchemy import select
+
+    from caesar.db.audit import AuditLogger
+    from caesar.db.schema import audit_log
+    from caesar.legion.worker import NoopWorker
+
+    audit = AuditLogger(engine)
+    registry = WorkerRegistry(bus, audit=audit)
+    await registry.start()
+    worker = NoopWorker(bus)
+    await worker.start()
+    try:
+        await _wait_for(lambda: "noop" in registry.workers)
+        await registry.dispatch("test.noop", {"x": 1}, decision_id="d-test")
+    finally:
+        await worker.stop()
+        await registry.stop()
+
+    async with engine.connect() as conn:
+        rows = (await conn.execute(select(audit_log))).all()
+    dispatch_rows = [r for r in rows if r.event_type == "legion.dispatched"]
+    assert len(dispatch_rows) == 1
+    payload = dispatch_rows[0].payload
+    assert payload["capability"] == "test.noop"
+    assert payload["worker_id"] == "noop"
+    assert payload["success"] is True
+    assert payload["decision_id"] == "d-test"

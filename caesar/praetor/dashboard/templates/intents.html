@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}CAESAR — intents{% endblock %}
+{% block content %}
+  <section class="intents">
+    <h2>Recent intents</h2>
+    {% if not intents %}
+      <p class="empty">No intents yet. Send a message to /v1/chat.</p>
+    {% else %}
+      {% for intent in intents %}
+        <details class="intent" open>
+          <summary>
+            <span class="ts">{{ intent.started_at }}</span>
+            <span class="msg">{{ intent.user_message or '(no user message)' }}</span>
+            <span class="id">{{ intent.decision_id[:8] }}</span>
+          </summary>
+          {% if intent.reply %}
+            <div class="reply">↪ {{ intent.reply }}</div>
+          {% endif %}
+          <ol class="trace">
+            {% for ev in intent.events %}
+              <li>
+                <span class="ts">{{ ev.ts }}</span>
+                <span class="event">{{ ev.event_type }}</span>
+                <span class="id">#{{ ev.id }}</span>
+                <pre class="payload">{{ ev.payload_preview }}</pre>
+              </li>
+            {% endfor %}
+          </ol>
+        </details>
+      {% endfor %}
+    {% endif %}
+  </section>
+{% endblock %}
