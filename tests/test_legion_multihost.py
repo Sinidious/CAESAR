@@ -63,9 +63,7 @@ def authed_legion() -> Iterator[_AuthedFixture]:
             next(gen)
 
 
-async def _connect(
-    nats_url: str, *, seed: str, user: str
-) -> Bus:
+async def _connect(nats_url: str, *, seed: str, user: str) -> Bus:
     bus = Bus(nats_url, auth=BusAuth(nkey_seed=seed, user=user))
     await bus.connect()
     return bus

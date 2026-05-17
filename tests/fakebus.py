@@ -119,19 +119,27 @@ def spawn_nats_with_nkey_auth(
         }}
         """
     )
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".conf", delete=False, encoding="utf-8"
-    ) as fh:
+    with tempfile.NamedTemporaryFile("w", suffix=".conf", delete=False, encoding="utf-8") as fh:
         fh.write(conf)
         conf_path = Path(fh.name)
 
+    # Capture stderr so a malformed config or auth error becomes a
+    # readable assertion, not a silent 'port never opened' timeout.
+    stderr_file = tempfile.TemporaryFile()
     proc = subprocess.Popen(
         [binary, "-c", str(conf_path)],
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=stderr_file,
     )
     try:
-        _wait_for_port(port)
+        try:
+            _wait_for_port(port)
+        except TimeoutError as exc:
+            stderr_file.seek(0)
+            stderr_text = stderr_file.read().decode("utf-8", errors="replace")
+            raise TimeoutError(
+                f"{exc}\nconfig was:\n{conf}\nstderr was:\n{stderr_text}"
+            ) from None
         yield f"nats://127.0.0.1:{port}"
     finally:
         proc.terminate()
@@ -140,4 +148,5 @@ def spawn_nats_with_nkey_auth(
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
+        stderr_file.close()
         conf_path.unlink(missing_ok=True)
