@@ -6,7 +6,7 @@ gateway / engine / settings without monkeypatching globals.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -154,19 +154,26 @@ def create_app(
             inprocess_workers=[w.worker_id for w in workers],
             retention_days=settings.memory.retention_days,
         )
+
+        async def _safe(coro_fn: Callable[[], Awaitable[None]], what: str) -> None:
+            try:
+                await coro_fn()
+            except Exception as exc:  # don't let one shutdown step skip the rest
+                logger.warning("praetor.shutdown.step_failed", step=what, error=str(exc))
+
         try:
             yield
         finally:
-            await sweeper.stop_background()
+            await _safe(sweeper.stop_background, "sweeper")
             for worker in reversed(workers):
-                await worker.stop()
+                await _safe(worker.stop, f"worker:{worker.worker_id}")
             if registry is not None:
-                await registry.stop()
+                await _safe(registry.stop, "registry")
             if bus is not None:
-                await bus.close()
+                await _safe(bus.close, "bus")
             if ha is not None:
-                await ha.aclose()
-            await engine.dispose()
+                await _safe(ha.aclose, "ha")
+            await _safe(engine.dispose, "engine")
             logger.info("praetor.shutdown")
 
     app = FastAPI(
