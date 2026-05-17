@@ -154,6 +154,24 @@ Override with the spec's env vars
 (`OTEL_TRACES_SAMPLER=parentbased_traceidratio` +
 `OTEL_TRACES_SAMPLER_ARG=0.1`) if you start fronting public endpoints.
 
+## Network exposure
+
+Praetor binds **`127.0.0.1:8000`** by default. A fresh install is
+only reachable from the host running it. Everything below is the
+operator's deliberate choice:
+
+```sh
+# Expose on the LAN. Front it with auth (reverse proxy + basic
+# auth, or a VPN). /v1/* is unauthenticated at the HTTP layer.
+export CAESAR_SERVER__HOST=0.0.0.0
+
+# Or bind to a specific NIC.
+export CAESAR_SERVER__HOST=10.0.0.5
+```
+
+See [SECURITY-REVIEW.md](SECURITY-REVIEW.md) — gap SR-001 explains
+the trade-off and how it's mitigated by the loopback default.
+
 ## Where the data lives
 
 - `./var/caesar.sqlite3` — the durable store.

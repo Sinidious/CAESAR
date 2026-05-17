@@ -74,7 +74,7 @@ know?".
 
 | ID     | Severity | Title                                                                  | Status | Closed by |
 | ------ | -------- | ---------------------------------------------------------------------- | ------ | --------- |
-| SR-001 | Medium   | `/v1/chat` and `/v1/devices/*` have no auth; bind defaults to 0.0.0.0  | Open   |           |
+| SR-001 | Medium   | `/v1/chat` and `/v1/devices/*` have no auth; bind defaults to 0.0.0.0  | Mitigated | Loopback default (this branch) |
 | SR-002 | Medium   | `/dashboard/login` has no rate-limit or lockout                         | Open   |           |
 | SR-003 | Medium   | `/metrics` is unauthenticated and exposes worker/event-type cardinality | Open   |           |
 | SR-004 | Medium   | Tool-result strings re-enter the LLM as user content (prompt-injection)| Open   |           |
@@ -89,17 +89,28 @@ know?".
 
 ### SR-001 — Unauthenticated `/v1/*` HTTP API
 
-The FastAPI app binds `0.0.0.0:8000` by default. Anyone on the LAN
-who can reach Praetor can `POST /v1/chat` (which burns provider
-tokens) or `POST /v1/devices/call_service` (which the Policy Engine
-gates, but still consumes audit-log rows and reveals device shape
-in error messages). The documented mitigation is "bind to
-loopback" but nothing enforces it.
+**Status: Mitigated (default-deny LAN exposure).**
 
-Mitigation: add a single-token bearer-auth dependency, or change
-the default `server.host` to `127.0.0.1` and document the operator's
-choice to expand it. Either is a small change; the second is
-simpler and matches the dashboard's loopback-by-default posture.
+The FastAPI app used to bind `0.0.0.0:8000` by default. Anyone on
+the LAN who could reach Praetor could `POST /v1/chat` (which burns
+provider tokens) or `POST /v1/devices/call_service` (which the
+Policy Engine gates, but still consumes audit-log rows and reveals
+device shape in error messages).
+
+`ServerSettings.host` now defaults to `127.0.0.1`. An operator who
+wants LAN access must opt in explicitly via
+`CAESAR_SERVER__HOST=0.0.0.0` and is reminded by the docstring to
+front it with auth. This doesn't add HTTP-layer auth (a follow-up
+gap), but it eliminates the *accidental* exposure that motivated
+the Medium rating. Operators on a single-machine homelab are now
+secure by default.
+
+Residual risk: an attacker who lands a process on the same host can
+still hit loopback. That's the host-compromise boundary, which is
+out of scope per SECURITY-MODEL.md.
+
+Follow-up: add bearer-token auth on `/v1/*` for operators who *do*
+expose Praetor on the LAN. Tracked as a separate row when raised.
 
 ### SR-002 — `/dashboard/login` has no rate-limit
 
