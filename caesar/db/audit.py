@@ -17,6 +17,7 @@ from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from caesar.db.schema import audit_log
+from caesar.metrics import AUDIT_EVENTS
 
 if TYPE_CHECKING:
     from caesar.praetor.audit_bus import AuditEventBus
@@ -45,6 +46,7 @@ class AuditLogger:
             if row_id is None:  # pragma: no cover - defensive
                 raise RuntimeError("audit_log insert returned no id")
             new_id = int(row_id[0])
+        AUDIT_EVENTS.labels(event_type=event_type).inc()
         if self._bus is not None:
             self._bus.publish(
                 {
