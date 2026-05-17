@@ -130,15 +130,11 @@ async def test_successful_login_does_not_consume_bucket(
     assert r.status_code == 401
 
 
-async def test_limiter_unblocks_after_window(
-    dashboard_client: AsyncClient, dashboard_app
-) -> None:
+async def test_limiter_unblocks_after_window(dashboard_client: AsyncClient, dashboard_app) -> None:
     """Aging out via the limiter's internal clock unblocks the route."""
 
     limiter: LoginRateLimiter = dashboard_app.state.login_rate_limiter
     # Hand-set the failures so we don't have to wait 5 real minutes.
-    limiter._failures["testclient"].extend(
-        [-limiter.window_seconds - 1.0] * limiter.max_failures
-    )
+    limiter._failures["testclient"].extend([-limiter.window_seconds - 1.0] * limiter.max_failures)
     r = await dashboard_client.post("/dashboard/login", data={"token": "wrong"})
     assert r.status_code == 401
