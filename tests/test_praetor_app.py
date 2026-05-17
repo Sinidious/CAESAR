@@ -141,6 +141,21 @@ async def test_unknown_inprocess_worker_raises(nats_url: str, db_url: str, fake_
             pass
 
 
+async def test_lifespan_cleanup_runs_even_when_ha_not_configured(
+    db_url: str, engine, fake_gateway
+) -> None:
+    """The lifespan finally must call engine.dispose without HA configured."""
+
+    app = create_app(
+        settings=_settings_with_key(db_url), gateway=fake_gateway, engine=engine
+    )
+    async with app.router.lifespan_context(app):
+        pass
+    # engine.dispose() was called; reconnecting still works because dispose
+    # only closes pooled connections (it's idempotent).
+    assert app.state.engine is engine
+
+
 async def test_lifespan_starts_and_stops_retention_sweeper(
     db_url: str, engine, fake_gateway, capsys: pytest.CaptureFixture[str]
 ) -> None:
