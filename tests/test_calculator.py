@@ -77,20 +77,20 @@ def test_evaluate_nested_call_round_trip() -> None:
     "expression",
     [
         "__import__('os').system('echo pwned')",  # imports rejected
-        "open('/etc/passwd')",                    # arbitrary calls rejected
-        "(1).bit_length()",                       # method calls rejected
-        "[x for x in range(10)]",                 # comprehensions rejected
-        "{1: 2}",                                 # literals beyond numbers rejected
-        "lambda x: x",                            # lambdas rejected
-        "x = 5",                                  # assignments rejected (statement mode)
-        "x",                                      # unknown name rejected
-        "sqrt",                                   # bare function name rejected
-        "sqrt(4, base=2)",                        # keyword arguments rejected
-        "1 & 2",                                  # bitwise ops not in whitelist
-        "1 < 2",                                  # comparisons not in whitelist
-        "True",                                   # bool literal rejected
-        "None",                                   # None rejected
-        "'hello'",                                # string rejected
+        "open('/etc/passwd')",  # arbitrary calls rejected
+        "(1).bit_length()",  # method calls rejected
+        "[x for x in range(10)]",  # comprehensions rejected
+        "{1: 2}",  # literals beyond numbers rejected
+        "lambda x: x",  # lambdas rejected
+        "x = 5",  # assignments rejected (statement mode)
+        "x",  # unknown name rejected
+        "sqrt",  # bare function name rejected
+        "sqrt(4, base=2)",  # keyword arguments rejected
+        "1 & 2",  # bitwise ops not in whitelist
+        "1 < 2",  # comparisons not in whitelist
+        "True",  # bool literal rejected
+        "None",  # None rejected
+        "'hello'",  # string rejected
     ],
 )
 def test_evaluate_rejects_dangerous_inputs(expression: str) -> None:
