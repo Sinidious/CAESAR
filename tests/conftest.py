@@ -287,5 +287,5 @@ def _reset_logging() -> Iterator[None]:
         root.removeHandler(handler)
         try:
             handler.close()
-        except Exception:  # noqa: BLE001 - best-effort cleanup
+        except Exception:
             pass
