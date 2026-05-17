@@ -347,6 +347,99 @@ async def test_semantic_recall_inprocess_worker_requires_embedder(
             pass
 
 
+def test_build_inprocess_worker_constructs_calculator() -> None:
+    """The factory's calculator branch returns a CalculatorWorker."""
+
+    from caesar.legion.calculator import CalculatorWorker
+    from caesar.praetor.app import _build_inprocess_worker
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url="sqlite+aiosqlite:///:memory:"),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+    )
+    worker = _build_inprocess_worker(
+        "calculator",
+        bus=None,  # type: ignore[arg-type]
+        engine=None,  # type: ignore[arg-type]
+        settings=settings,
+        embedder=None,
+    )
+    assert isinstance(worker, CalculatorWorker)
+
+
+def test_build_inprocess_worker_constructs_web_search() -> None:
+    """The factory's web_search branch wires the SearXNG client."""
+
+    from caesar.legion.web_search import WebSearchWorker
+    from caesar.praetor.app import _build_inprocess_worker
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url="sqlite+aiosqlite:///:memory:"),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+    )
+    worker = _build_inprocess_worker(
+        "web_search",
+        bus=None,  # type: ignore[arg-type]
+        engine=None,  # type: ignore[arg-type]
+        settings=settings,
+        embedder=None,
+    )
+    assert isinstance(worker, WebSearchWorker)
+
+
+def test_build_inprocess_worker_requires_calendar_password(db_url: str) -> None:
+    """calendar_read without a password fails fast at construction."""
+
+    from caesar.praetor.app import _build_inprocess_worker
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        # tools.calendar.password defaults to None
+    )
+    with pytest.raises(ValueError, match="CAESAR_TOOLS__CALENDAR__PASSWORD"):
+        _build_inprocess_worker(
+            "calendar_read",
+            bus=None,  # type: ignore[arg-type]
+            engine=None,  # type: ignore[arg-type]
+            settings=settings,
+            embedder=None,
+        )
+
+
+def test_build_inprocess_worker_constructs_calendar_read_when_configured(db_url: str) -> None:
+    """Full calendar_read wiring: with password set, the worker is built."""
+
+    from caesar.config import CalendarToolSettings, ToolsSettings
+    from caesar.legion.calendar_read import CalendarReadWorker
+    from caesar.praetor.app import _build_inprocess_worker
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        tools=ToolsSettings(
+            calendar=CalendarToolSettings(
+                caldav_url="http://nextcloud.lan/remote.php/dav/",
+                username="caesar",
+                password=SecretStr("hunter2"),
+                calendar_names=["Family"],
+            )
+        ),
+    )
+    worker = _build_inprocess_worker(
+        "calendar_read",
+        bus=None,  # type: ignore[arg-type]
+        engine=None,  # type: ignore[arg-type]
+        settings=settings,
+        embedder=None,
+    )
+    assert isinstance(worker, CalendarReadWorker)
+
+
 async def test_lifespan_cleanup_runs_even_when_ha_not_configured(
     db_url: str, engine, fake_gateway
 ) -> None:

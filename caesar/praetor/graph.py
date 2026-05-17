@@ -34,6 +34,7 @@ from caesar.db.audit import AuditLogger
 from caesar.ha.client import HAClient
 from caesar.ha.models import ServiceCall
 from caesar.legion.calculator import CAPABILITY as CALCULATOR_CAPABILITY
+from caesar.legion.calendar_read import CAPABILITY as CALENDAR_READ_CAPABILITY
 from caesar.legion.registry import WorkerRegistry
 from caesar.legion.web_search import CAPABILITY as WEB_SEARCH_CAPABILITY
 from caesar.llm.gateway import (
@@ -173,6 +174,28 @@ WEB_SEARCH_TOOL = ToolDefinition(
 )
 
 
+CALENDAR_READ_TOOL = ToolDefinition(
+    name="calendar_read",
+    description=(
+        "Read upcoming events from the operator's CalDAV calendars. "
+        'Use when the user asks "what\'s on my calendar?", "am I '
+        'free Thursday?", or "what time is my next meeting?". '
+        "Provide ISO-8601 timestamps for ``from`` / ``to`` or omit "
+        "them to default to now → now+7d. Returns events as "
+        "{title, start, end, location, description, calendar}. "
+        "Read-only; cannot create or edit events."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "from": {"type": "string", "description": "ISO-8601 start; defaults to now."},
+            "to": {"type": "string", "description": "ISO-8601 end; defaults to from+7d."},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 200},
+        },
+    },
+)
+
+
 def build_brain_graph(
     *,
     gateway: LLMGateway,
@@ -197,6 +220,8 @@ def build_brain_graph(
         tools.append(CALCULATOR_TOOL)
     if registry is not None and registry.find(WEB_SEARCH_CAPABILITY):
         tools.append(WEB_SEARCH_TOOL)
+    if registry is not None and registry.find(CALENDAR_READ_CAPABILITY):
+        tools.append(CALENDAR_READ_TOOL)
 
     async def _handle_call_service(use: ToolUse, decision_id: str) -> ToolResult:
         try:
@@ -396,6 +421,15 @@ def build_brain_graph(
                                 decision_id,
                                 tool="web_search",
                                 capability=WEB_SEARCH_CAPABILITY,
+                            )
+                        )
+                    elif use.name == "calendar_read":
+                        results.append(
+                            await _handle_generic_tool(
+                                use,
+                                decision_id,
+                                tool="calendar_read",
+                                capability=CALENDAR_READ_CAPABILITY,
                             )
                         )
                     else:

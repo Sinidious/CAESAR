@@ -289,10 +289,30 @@ class WebSearchToolSettings(BaseModel):
     timeout_seconds: float = 10.0
 
 
+class CalendarToolSettings(BaseModel):
+    """CalDAV-backed ``calendar_read`` worker configuration (ADR-0028).
+
+    ``calendar_names`` optionally restricts the worker to a subset of
+    the operator's calendars (useful when a Nextcloud account hosts
+    work + family calendars and only one should reach the brain).
+    Empty list = all calendars are visible.
+    """
+
+    caldav_url: str = "http://localhost:5232/"
+    username: str = ""
+    password: SecretStr | None = None
+    calendar_names: list[str] = Field(default_factory=list)
+    default_range_days: int = 7
+    default_event_limit: int = 20
+    max_event_limit: int = 200
+    max_range_days: int = 365
+
+
 class ToolsSettings(BaseModel):
     """Per-tool worker configuration (ADR-0028)."""
 
     web_search: WebSearchToolSettings = Field(default_factory=WebSearchToolSettings)
+    calendar: CalendarToolSettings = Field(default_factory=CalendarToolSettings)
 
 
 class CaesarSettings(BaseSettings):
