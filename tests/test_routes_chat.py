@@ -50,9 +50,15 @@ async def test_chat_uses_request_model_when_supplied(client: AsyncClient):
 
 
 async def test_chat_uses_overridden_system_prompt(client, fake_gateway, engine):
-    """When the settings_store has a system prompt, chat uses it."""
+    """When the settings_store has a system prompt, chat uses it.
+
+    The brain graph always prepends the SR-004 safety preamble before
+    the operator prompt; this test confirms the operator's value ends
+    up *after* the preamble, not replacing it.
+    """
 
     from caesar.db.settings_store import SettingsStore
+    from caesar.praetor.safety import BRAIN_SAFETY_PREAMBLE
 
     store = SettingsStore(engine)
     await store.set_system_prompt("Custom voice from the dashboard.")
@@ -61,5 +67,6 @@ async def test_chat_uses_overridden_system_prompt(client, fake_gateway, engine):
         json={"messages": [{"role": "user", "content": "hi"}]},
     )
     assert r.status_code == 200
-    # The first gateway call should see the overridden prompt.
-    assert fake_gateway.calls[0]["system"] == "Custom voice from the dashboard."
+    system = fake_gateway.calls[0]["system"]
+    assert system.startswith(BRAIN_SAFETY_PREAMBLE)
+    assert system.endswith("Custom voice from the dashboard.")
