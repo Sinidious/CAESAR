@@ -121,6 +121,35 @@ ADR-0027 covers the design (and closes SR-009 in the process).
       `PATH` (same pattern as the existing bus tests).
 - [ ] Docs: "Run a worker on another box" page.
 
+## v1.3 — Tools beyond HA
+
+**Question:** Can the brain do something other than turn on lights?
+
+Through v1.2 the only "tools" the brain knew about were
+`call_service` (HA), `recall_memory`, and `semantic_recall`. v1.3
+widens the toolbox so CAESAR feels like an assistant, not just a
+voice-controlled remote. ADR-0028 covers the design.
+
+New tools ship as **Legion workers** (reusing the v1.2 multi-host
+arch) and are gated by a **generalised Policy Engine** that
+evaluates any tool call by id + input — not just HA service calls.
+Existing HA policy keeps working unchanged because `call_service`
+becomes one tool id among many.
+
+- [ ] ADR-0028: tool worker shape + Policy Engine generalisation
+      + per-tool YAML grammar.
+- [ ] Policy generalisation: `evaluate(call)` accepts a uniform
+      `ToolCall` shape; existing `ServiceCall` becomes a subtype;
+      audit row carries the tool id.
+- [ ] Calculator worker: pure-Python, no network, no creds.
+      Smallest possible end-to-end exercise of the new tool path.
+- [ ] Web-search worker: network call, requires a credentialed
+      backend (SearXNG self-hosted *or* a Brave / Tavily API key).
+      Policy-gated by allowed-domains list.
+- [ ] Calendar-read worker: CalDAV against a homelab calendar.
+- [ ] Docs: "Add your own tool" page covering the worker SDK
+      shape, policy grammar, audit-row naming conventions.
+
 ## Out of scope (for now)
 
 - Mobile native apps (the dashboard will be installable PWA first).
