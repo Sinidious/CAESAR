@@ -5,6 +5,7 @@ results. PR A ships the protocol + registry + a noop worker for
 testing; PR B brings the first real worker (memory recall).
 """
 
+from caesar.legion.memory_recall import MemoryRecallWorker
 from caesar.legion.protocol import (
     REGISTRATION_SUBJECT,
     TaskDispatch,
@@ -17,6 +18,7 @@ from caesar.legion.worker import NoopWorker, Worker
 
 __all__ = [
     "REGISTRATION_SUBJECT",
+    "MemoryRecallWorker",
     "NoWorkerAvailableError",
     "NoopWorker",
     "TaskDispatch",

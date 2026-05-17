@@ -122,6 +122,82 @@ def test_create_app_with_bus_enabled_constructs_bus(db_url: str):
     assert isinstance(app.state.registry, WorkerRegistry)
 
 
+async def test_unknown_inprocess_worker_raises(nats_url: str, db_url: str, fake_gateway) -> None:
+    """An unknown name in inprocess_workers fails fast at startup."""
+
+    from caesar.config import BusSettings, LegionSettings
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        bus=BusSettings(enabled=True, url=nats_url),
+        legion=LegionSettings(inprocess_workers=["nope"]),
+    )
+    app = create_app(settings=settings, gateway=fake_gateway)
+
+    with pytest.raises(ValueError, match="unknown in-process worker"):
+        async with app.router.lifespan_context(app):
+            pass
+
+
+async def test_inprocess_workers_warning_when_bus_disabled(
+    db_url: str, fake_gateway, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Configured workers + disabled bus logs a warning but doesn't crash."""
+
+    from caesar.config import LegionSettings
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        legion=LegionSettings(inprocess_workers=["memory_recall"]),
+    )
+    app = create_app(settings=settings, gateway=fake_gateway)
+
+    async with app.router.lifespan_context(app):
+        pass
+
+    out = capsys.readouterr().out
+    assert "inprocess_workers_skipped" in out
+
+
+async def test_lifespan_starts_inprocess_memory_recall_worker(
+    nats_url: str, db_url: str, fake_gateway
+) -> None:
+    """End-to-end: bus enabled + memory_recall in inprocess_workers → worker
+    registers and is dispatchable through the registry."""
+
+    import asyncio
+
+    from caesar.bus.client import Bus
+    from caesar.config import BusSettings, LegionSettings
+    from caesar.legion.memory_recall import CAPABILITY
+    from caesar.legion.registry import WorkerRegistry
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        bus=BusSettings(enabled=True, url=nats_url),
+        legion=LegionSettings(inprocess_workers=["memory_recall"]),
+    )
+    app = create_app(settings=settings, gateway=fake_gateway)
+
+    async with app.router.lifespan_context(app):
+        bus = app.state.bus
+        registry: WorkerRegistry = app.state.registry
+        assert isinstance(bus, Bus)
+        for _ in range(50):
+            if CAPABILITY in set(registry.capabilities()):
+                break
+            await asyncio.sleep(0.02)
+        result = await registry.dispatch(CAPABILITY, {"limit": 5})
+        assert result.success is True
+        assert (result.result or {})["count"] >= 0
+
+
 async def test_lifespan_connects_and_disconnects_bus(
     nats_url: str, db_url: str, fake_gateway, capsys: pytest.CaptureFixture[str]
 ) -> None:
