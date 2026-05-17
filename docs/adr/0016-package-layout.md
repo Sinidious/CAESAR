@@ -81,7 +81,7 @@ Rules:
   disk but doesn't run them.
 - **Subpackage = subsystem.** A new subsystem is a new top-level
   subpackage. A new module *inside* an existing subsystem is not an
-  ADR-worthy change; a new subsystem is (per [CLAUDE.md](../../CLAUDE.md)).
+  ADR-worthy change; a new subsystem is (per [CLAUDE.md](https://github.com/Sinidious/CAESAR/blob/main/CLAUDE.md)).
 - **`tests/` mirrors `src/caesar/`.** `tests/unit/praetor/test_app.py`
   tests `caesar.praetor.app`. Integration tests live under
   `tests/integration/` and are not required to mirror source.

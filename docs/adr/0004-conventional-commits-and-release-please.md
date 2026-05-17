@@ -24,12 +24,12 @@ CAESAR uses **Conventional Commits** for every commit on `main`, and
 
 - Commit message format: `<type>(<scope>): <imperative summary>`.
   Allowed types are enumerated in
-  [`pr-lint.yml`](../../.github/workflows/pr-lint.yml) and enforced
+  [`pr-lint.yml`](https://github.com/Sinidious/CAESAR/blob/main/.github/workflows/pr-lint.yml) and enforced
   on PR titles.
 - `pre-commit` runs `conventional-pre-commit` on `commit-msg` so local
   commits also have to conform.
 - The
-  [`release-please.yml`](../../.github/workflows/release-please.yml)
+  [`release-please.yml`](https://github.com/Sinidious/CAESAR/blob/main/.github/workflows/release-please.yml)
   workflow runs on every push to `main`. It opens a release PR that
   bumps `pyproject.toml`, updates `CHANGELOG.md`, and tags
   `vX.Y.Z` on merge.

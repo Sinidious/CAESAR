@@ -51,6 +51,11 @@ There is no quickstart yet. Application code lands in **v0.1** — see the
 decisions, the CI pipeline, the license, and the contributor framework
 that the rest of the project will be built on.
 
+## Documentation
+
+The full docs site lives at **<https://sinidious.github.io/CAESAR/>** —
+architecture, the operator runbook, every ADR, and a glossary.
+
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the system diagram,

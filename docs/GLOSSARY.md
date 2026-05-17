@@ -9,14 +9,14 @@ service" and "worker agent pool". Everything else is plain English.
 **ADR** — Architecture Decision Record. Short markdown files under
 [`docs/adr/`](adr/README.md) recording *why* we made a non-trivial
 technical choice. New application code in a new area requires an
-accepted ADR first (see [CLAUDE.md](../CLAUDE.md)).
+accepted ADR first (see [CLAUDE.md](https://github.com/Sinidious/CAESAR/blob/main/CLAUDE.md)).
 
 **Audit Log** — Append-only record of every decision Praetor makes,
 along with the inputs that produced it. Designed to be replayable. See
 [ADR-0012](adr/0012-audit-log.md).
 
 **CLA** — Contributor License Agreement. Every contributor signs the
-[CLA](../CLA.md) before their first PR is merged; this is enforced by
+[CLA](https://github.com/Sinidious/CAESAR/blob/main/CLA.md) before their first PR is merged; this is enforced by
 the CLA Assistant Lite workflow.
 
 **Dashboard** — The web UI for CAESAR. Shows the live audit log, intent

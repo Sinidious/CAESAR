@@ -32,7 +32,7 @@ Implications:
 - Commercial use of any kind: requires a separate commercial license
   from the maintainer.
 - Distribution must preserve the license notice (see
-  [NOTICE](../../NOTICE)).
+  [NOTICE](https://github.com/Sinidious/CAESAR/blob/main/NOTICE)).
 - Dependencies must be compatible with PolyForm-NC distribution.
   MIT / Apache-2.0 / BSD / ISC / MPL are fine. AGPL / SSPL / GPL in
   shipped code requires an ADR and almost certainly will not be
@@ -74,5 +74,5 @@ Implications:
 ## References
 
 - [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/)
-- [LICENSE](../../LICENSE)
-- [NOTICE](../../NOTICE)
+- [LICENSE](https://github.com/Sinidious/CAESAR/blob/main/LICENSE)
+- [NOTICE](https://github.com/Sinidious/CAESAR/blob/main/NOTICE)

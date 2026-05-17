@@ -39,7 +39,7 @@ first. Small fixes, refactors, tests, and doc changes do not.
 
 - Reviewers can ask "where's the ADR?" and that is a complete review
   comment.
-- Contributors (human or AI) reading [CLAUDE.md](../../CLAUDE.md) have
+- Contributors (human or AI) reading [CLAUDE.md](https://github.com/Sinidious/CAESAR/blob/main/CLAUDE.md) have
   a hard gate against scope creep.
 - The docs site automatically renders the full decision history.
 
