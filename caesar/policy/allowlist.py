@@ -48,9 +48,7 @@ def _call_entity_ids(call: ServiceCall) -> list[str] | None:
     return None
 
 
-def _domain_allowlist_matches(
-    rule_input: dict[str, Any], call_input: dict[str, Any]
-) -> bool:
+def _domain_allowlist_matches(rule_input: dict[str, Any], call_input: dict[str, Any]) -> bool:
     """``domain_allowlist`` matcher.
 
     Used by ``web_search`` and similar URL-returning tools (ADR-0028).
@@ -141,9 +139,7 @@ class AllowlistPolicy:
         if call_entities is None:
             return PolicyDecision(
                 allowed=False,
-                reason=(
-                    f"{identifier} requires target.entity_id; call did not provide one."
-                ),
+                reason=(f"{identifier} requires target.entity_id; call did not provide one."),
                 rule=None,
             )
 

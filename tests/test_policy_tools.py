@@ -59,8 +59,11 @@ def test_deny_all_denies_service_call_same_message_shape() -> None:
 # --- AllowlistPolicy ServiceCall path remains correct -----------------------
 
 
-def _rules(*, services: list[str | AllowedServiceRule] | None = None,
-           tools: list[str | AllowedToolRule] | None = None) -> RulesConfig:
+def _rules(
+    *,
+    services: list[str | AllowedServiceRule] | None = None,
+    tools: list[str | AllowedToolRule] | None = None,
+) -> RulesConfig:
     return RulesConfig.model_validate(
         {
             "version": 1,
