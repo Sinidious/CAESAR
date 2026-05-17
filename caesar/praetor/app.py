@@ -27,6 +27,7 @@ from caesar.legion.worker import Worker
 from caesar.llm.anthropic import AnthropicProvider
 from caesar.llm.embeddings import Embedder, StubEmbedder, VoyageEmbedder
 from caesar.llm.gateway import LLMGateway
+from caesar.llm.ollama import OllamaProvider
 from caesar.llm.openai import OpenAIProvider
 from caesar.log import configure_logging, get_logger
 from caesar.memory.retention import RetentionSweeper
@@ -77,6 +78,12 @@ def _default_gateway(settings: CaesarSettings) -> LLMGateway:
             default_model=settings.llm.model,
             default_max_tokens=settings.llm.max_tokens,
             base_url=settings.llm.openai.base_url,
+        )
+    if settings.llm.provider == "ollama":
+        return OllamaProvider(
+            default_model=settings.llm.model,
+            default_max_tokens=settings.llm.max_tokens,
+            base_url=settings.llm.ollama.base_url,
         )
     raise RuntimeError(  # pragma: no cover - exhaustively matched above
         f"unknown LLM provider: {settings.llm.provider!r}",

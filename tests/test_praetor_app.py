@@ -54,6 +54,26 @@ def test_create_app_with_provider_openai_builds_openai_gateway(db_url: str):
     assert isinstance(app.state.gateway, OpenAIProvider)
 
 
+def test_create_app_with_provider_ollama_builds_ollama_gateway(db_url: str):
+    """ADR-0026: provider=ollama picks the OllamaProvider; no api_key needed."""
+
+    from caesar.config import OllamaProviderSettings
+    from caesar.llm.ollama import OllamaProvider
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(
+            provider="ollama",
+            model="llama3.1:8b-instruct",
+            ollama=OllamaProviderSettings(base_url="http://gpu-box.lan:11434"),
+        ),
+        log=LogSettings(format="console", level="DEBUG"),
+    )
+    app = create_app(settings=settings)
+    assert isinstance(app.state.gateway, OllamaProvider)
+    assert app.state.gateway._base_url == "http://gpu-box.lan:11434"
+
+
 def test_create_app_with_provider_openai_no_key_raises(db_url: str):
     settings = CaesarSettings(
         db=DatabaseSettings(url=db_url),
