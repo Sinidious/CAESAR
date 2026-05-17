@@ -44,9 +44,16 @@ class LogSettings(BaseModel):
 
 
 class ServerSettings(BaseModel):
-    """Praetor HTTP server bind (ADR-0006)."""
+    """Praetor HTTP server bind (ADR-0006).
 
-    host: str = "0.0.0.0"
+    Defaults to loopback so a fresh install doesn't expose ``/v1/chat``,
+    the dashboard, or ``/metrics`` to the LAN without the operator
+    saying so. To expose Praetor on the network, set
+    ``CAESAR_SERVER__HOST=0.0.0.0`` (and front it with auth — see
+    SECURITY-REVIEW.md, gap SR-001).
+    """
+
+    host: str = "127.0.0.1"
     port: int = 8000
 
 

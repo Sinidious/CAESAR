@@ -14,7 +14,7 @@ def test_defaults_are_safe():
     assert s.db.url.startswith("sqlite+aiosqlite:///")
     assert s.llm.model.startswith("claude-")
     assert s.log.format == "json"
-    assert s.server.host == "0.0.0.0"
+    assert s.server.host == "127.0.0.1"
     assert s.server.port == 8000
     assert s.llm.api_key is None
 
