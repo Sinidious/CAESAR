@@ -36,6 +36,7 @@ from caesar.policy.engine import DenyAllPolicy, Policy
 from caesar.policy.yaml_loader import load_rules
 from caesar.praetor.audit_bus import AuditEventBus
 from caesar.praetor.dashboard import build_router as build_dashboard_router
+from caesar.praetor.dashboard.rate_limit import LoginRateLimiter
 from caesar.praetor.dashboard.routes import STATIC_DIR as DASHBOARD_STATIC_DIR
 from caesar.praetor.middleware import request_id_middleware
 from caesar.praetor.routes import chat, devices, health
@@ -246,6 +247,7 @@ def create_app(
     app.state.semantic_indexer = semantic_indexer
     app.state.audit_bus = audit_bus
     app.state.settings_store = settings_store
+    app.state.login_rate_limiter = LoginRateLimiter()
 
     app.middleware("http")(request_id_middleware)
     app.include_router(health.router)

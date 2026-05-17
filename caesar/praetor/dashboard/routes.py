@@ -29,6 +29,7 @@ from caesar.praetor.dashboard.auth import (
     require_session,
     token_matches,
 )
+from caesar.praetor.dashboard.rate_limit import LoginRateLimiter
 from caesar.praetor.dashboard.views import load_agent_activity, load_intents
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -64,6 +65,16 @@ def _caesar_settings_from(request: Request) -> CaesarSettings:
     return cast(CaesarSettings, request.app.state.settings)
 
 
+def _login_rate_limiter_from(request: Request) -> LoginRateLimiter:
+    return cast(LoginRateLimiter, request.app.state.login_rate_limiter)
+
+
+def _client_key(request: Request) -> str:
+    """Identifier for rate-limit bucketing. Source IP, or 'unknown'."""
+
+    return request.client.host if request.client else "unknown"
+
+
 SettingsDep = Annotated[DashboardSettings, Depends(_settings_from)]
 EngineDep = Annotated[AsyncEngine, Depends(_engine_from)]
 BusDep = Annotated[AuditEventBus, Depends(_bus_from)]
@@ -71,6 +82,7 @@ RegistryDep = Annotated["WorkerRegistry | None", Depends(_registry_from)]
 SettingsStoreDep = Annotated[SettingsStore, Depends(_settings_store_from)]
 AuditDep = Annotated[AuditLogger, Depends(_audit_from)]
 CaesarSettingsDep = Annotated[CaesarSettings, Depends(_caesar_settings_from)]
+LoginRateLimiterDep = Annotated[LoginRateLimiter, Depends(_login_rate_limiter_from)]
 SessionDep = Annotated[None, Depends(require_session)]
 
 
@@ -89,8 +101,20 @@ def build_router() -> APIRouter:
         request: Request,
         token: Annotated[str, Form()],
         settings: SettingsDep,
+        limiter: LoginRateLimiterDep,
     ) -> HTMLResponse | RedirectResponse:
+        client = _client_key(request)
+        if not limiter.check(client):
+            retry_after = int(limiter.retry_after_seconds(client)) + 1
+            return templates.TemplateResponse(
+                request,
+                "login.html",
+                {"error": f"Too many failed attempts. Try again in {retry_after}s."},
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                headers={"Retry-After": str(retry_after)},
+            )
         if not token_matches(token, settings):
+            limiter.record_failure(client)
             return templates.TemplateResponse(
                 request,
                 "login.html",
