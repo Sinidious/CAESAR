@@ -103,6 +103,7 @@ nav:
       - "0023 — OpenTelemetry tracing": adr/0023-opentelemetry-tracing.md
       - "0024 — Documentation site": adr/0024-docs-site-mkdocs.md
       - "0025 — Security review process": adr/0025-security-review.md
+      - "0026 — Multi-provider LLM gateway": adr/0026-multi-provider-llm-gateway.md
 
 validation:
   omitted_files: warn

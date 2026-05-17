@@ -64,11 +64,35 @@ for a task, and return a result?
 
 **Question:** Would I trust this to run my house unattended for a week?
 
-- All v0.x gates passing.
-- Stability + observability: metrics, traces, alerting.
-- Documented backup/restore.
-- Security review of the policy engine.
-- Public docs site.
+- [x] All v0.x gates passing.
+- [x] Stability + observability: Prometheus `/metrics` + OpenTelemetry tracing.
+- [x] Documented backup/restore (ADR-0022).
+- [x] Security review of the policy engine ([SECURITY-REVIEW.md](SECURITY-REVIEW.md), ADR-0025).
+- [x] Public docs site (mkdocs-material, ADR-0024).
+
+## v1.1 — Provider flexibility
+
+**Question:** Can I run CAESAR on the model I picked — including a
+fully-local one — without forking the brain?
+
+The LLM Gateway has been provider-agnostic since
+[ADR-0011](adr/0011-llm-gateway.md), but only Anthropic is wired.
+v1.1 fills it in so an operator can choose per-task between
+Anthropic, OpenAI, and a local Ollama — with full tool-calling on
+each. ADR-0026 covers the design.
+
+- [ ] ADR-0026: multi-provider gateway design (tool-call
+      normalisation across Anthropic / OpenAI / Ollama shapes;
+      per-task routing config; reasoning-token accounting).
+- [ ] OpenAI provider — covers GPT and Azure-OpenAI; native
+      function-calling translated to our `ToolUse` / `ToolResult`.
+- [ ] Ollama provider — fully-local operation; tool calling via
+      the Ollama 0.4+ tool API.
+- [ ] Per-task routing config — operator can assign different
+      models to `/v1/chat`, `memory_recall`, `semantic_recall`,
+      etc. without code changes.
+- [ ] Docs: "How to pick a model" page with cost/latency/privacy
+      trade-offs.
 
 ## Out of scope (for now)
 
