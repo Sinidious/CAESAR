@@ -9,6 +9,37 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from
 [Conventional Commits](https://www.conventionalcommits.org) on `main`.
 
+## [0.2.0](https://github.com/Sinidious/CAESAR/compare/v0.1.2...v0.2.0) (2026-05-17)
+
+
+### Features
+
+* **bus:** v0.3 PR A — NATS bus, Legion protocol, worker registry ([#29](https://github.com/Sinidious/CAESAR/issues/29)) ([89bdb34](https://github.com/Sinidious/CAESAR/commit/89bdb34486523270d05187ec1f9615fe0cb19aa5))
+* **dashboard:** v0.5 PR A — live audit log dashboard (ADR-0021) ([#33](https://github.com/Sinidious/CAESAR/issues/33)) ([c16986c](https://github.com/Sinidious/CAESAR/commit/c16986ca7f5433f61c4b7a56e534504755fbd516))
+* **dashboard:** v0.5 PR B — intent timeline + agent activity ([#34](https://github.com/Sinidious/CAESAR/issues/34)) ([daa9349](https://github.com/Sinidious/CAESAR/commit/daa93491e0c5a666c206dfaf4063093276240f3e))
+* **dashboard:** v0.5 PR C — settings UI to edit the brain's system prompt (closes v0.5) ([#35](https://github.com/Sinidious/CAESAR/issues/35)) ([578ee73](https://github.com/Sinidious/CAESAR/commit/578ee7313f114fdc19dda56dc313b49361a341cb))
+* **db:** v1.0 — backup/restore CLI via SQLite Online Backup API ([#36](https://github.com/Sinidious/CAESAR/issues/36)) ([fa5765d](https://github.com/Sinidious/CAESAR/commit/fa5765d6ef3653823164a068f42f7adba7e5531d))
+* **docs:** v1.0 — mkdocs-material site on GitHub Pages (ADR-0024) ([#39](https://github.com/Sinidious/CAESAR/issues/39)) ([78931e4](https://github.com/Sinidious/CAESAR/commit/78931e4a3c6a04b296170ea42333195d4ac84c6f))
+* **ha:** v0.2 PR A — HA Bridge (REST + WS) + policy stub + device routes ([#26](https://github.com/Sinidious/CAESAR/issues/26)) ([c0a7202](https://github.com/Sinidious/CAESAR/commit/c0a7202375421ce3854e273cedc1cd6d41b37f9b))
+* **legion:** v0.3 PR B — memory-recall worker + recall_memory brain tool ([#30](https://github.com/Sinidious/CAESAR/issues/30)) ([cae6098](https://github.com/Sinidious/CAESAR/commit/cae6098fc34b3c8c751256424b3f33525dad5170))
+* **memory:** v0.4 PR A — episodic TTL retention sweep (ADR-0020) ([#31](https://github.com/Sinidious/CAESAR/issues/31)) ([a0720f7](https://github.com/Sinidious/CAESAR/commit/a0720f7df1efb2e4e609e7d56787a6dd54fe5347))
+* **memory:** v0.4 PR B — semantic recall via embeddings (closes v0.4) ([#32](https://github.com/Sinidious/CAESAR/issues/32)) ([c73ec09](https://github.com/Sinidious/CAESAR/commit/c73ec09c70233cbfa64c1c58db4a0a34ab3b6e32))
+* **metrics:** v1.0 — Prometheus /metrics endpoint ([#37](https://github.com/Sinidious/CAESAR/issues/37)) ([ef263e1](https://github.com/Sinidious/CAESAR/commit/ef263e1aa0e07e9a4a3c56efabdcbb11aa8e1059))
+* **policy:** v0.2 PR B — YAML allow-list policy replaces DenyAllPolicy ([#27](https://github.com/Sinidious/CAESAR/issues/27)) ([ff5238d](https://github.com/Sinidious/CAESAR/commit/ff5238d077964fe9fcde26497b67427bce68c9f9))
+* **tracing:** v1.0 — opt-in OpenTelemetry tracing (ADR-0023) ([#38](https://github.com/Sinidious/CAESAR/issues/38)) ([d73e5b1](https://github.com/Sinidious/CAESAR/commit/d73e5b1d849f6cd1a95403462adb86f629ad4174))
+* v0.1 Praetor heartbeat — FastAPI + LangGraph echo + audit ([#25](https://github.com/Sinidious/CAESAR/issues/25)) ([476e876](https://github.com/Sinidious/CAESAR/commit/476e8766a6a3f7be862911eeca2747019d4806b6))
+* v0.2 PR C — LLM tool-use closes the speak-to-the-house gate ([#28](https://github.com/Sinidious/CAESAR/issues/28)) ([00b8a93](https://github.com/Sinidious/CAESAR/commit/00b8a931bad9b79430dbbca818b04618ec318f36))
+
+
+### Bug Fixes
+
+* **ci:** explicitly disable CLA lock-on-merge ([#24](https://github.com/Sinidious/CAESAR/issues/24)) ([dde5c00](https://github.com/Sinidious/CAESAR/commit/dde5c00ea0e03545e97041d0bd086d2e8383aaf6))
+
+
+### Documentation
+
+* **security:** v1.0 — lightweight security review (ADR-0025) ([#40](https://github.com/Sinidious/CAESAR/issues/40)) ([f58adb5](https://github.com/Sinidious/CAESAR/commit/f58adb5a79b6b512b15accb14b16cf27fde275ac))
+
 ## [0.1.2](https://github.com/Sinidious/CAESAR/compare/v0.1.1...v0.1.2) (2026-05-16)
 
 
