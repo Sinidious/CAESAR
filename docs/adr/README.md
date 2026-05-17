@@ -52,3 +52,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0024 | [Documentation site on mkdocs-material + GitHub Pages](0024-docs-site-mkdocs.md) | Accepted |
 | 0025 | [Lightweight security review as a living document](0025-security-review.md) | Accepted |
 | 0026 | [Multi-provider LLM gateway](0026-multi-provider-llm-gateway.md) | Accepted |
+| 0027 | [NATS auth and multi-host Legion](0027-nats-auth-multihost-legion.md) | Accepted |
