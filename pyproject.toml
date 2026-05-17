@@ -132,7 +132,7 @@ disallow_incomplete_defs = false
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["langgraph.*", "voyageai.*"]
+module = ["langgraph.*", "voyageai.*", "nkeys.*"]
 ignore_missing_imports = true
 
 # OpenTelemetry is an opt-in extra (ADR-0023). CI doesn't install it,
