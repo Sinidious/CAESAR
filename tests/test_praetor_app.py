@@ -35,6 +35,57 @@ def test_create_app_with_key_builds_default_gateway(db_url: str):
     assert isinstance(app.state.gateway, AnthropicProvider)
 
 
+def test_create_app_with_provider_openai_builds_openai_gateway(db_url: str):
+    """ADR-0026: provider=openai picks the OpenAIProvider."""
+
+    from caesar.config import OpenAIProviderSettings
+    from caesar.llm.openai import OpenAIProvider
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(
+            provider="openai",
+            model="gpt-4o-mini",
+            openai=OpenAIProviderSettings(api_key=SecretStr("sk-openai")),
+        ),
+        log=LogSettings(format="console", level="DEBUG"),
+    )
+    app = create_app(settings=settings)
+    assert isinstance(app.state.gateway, OpenAIProvider)
+
+
+def test_create_app_with_provider_openai_no_key_raises(db_url: str):
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(provider="openai", model="gpt-4o-mini"),
+        log=LogSettings(format="console", level="DEBUG"),
+    )
+    with pytest.raises(RuntimeError, match="OPENAI__API_KEY"):
+        create_app(settings=settings)
+
+
+def test_create_app_prefers_nested_anthropic_key_over_legacy_top_level(db_url: str):
+    """Pre-v1.1 `llm.api_key` still works, but nested wins when both set."""
+
+    from caesar.config import AnthropicProviderSettings
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(
+            api_key=SecretStr("legacy-key"),
+            anthropic=AnthropicProviderSettings(api_key=SecretStr("nested-key")),
+        ),
+        log=LogSettings(format="console", level="DEBUG"),
+    )
+    app = create_app(settings=settings)
+    # The provider's internal client was built from the nested key.
+    # We can't peek at the SDK's stored secret, but we can at least
+    # confirm the right type was built without raising.
+    from caesar.llm.anthropic import AnthropicProvider
+
+    assert isinstance(app.state.gateway, AnthropicProvider)
+
+
 def test_create_app_with_ha_settings_builds_default_ha(db_url: str):
     """When CAESAR_HA__URL and CAESAR_HA__TOKEN are set, the bridge is built."""
 

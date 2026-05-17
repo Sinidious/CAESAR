@@ -27,6 +27,7 @@ from caesar.legion.worker import Worker
 from caesar.llm.anthropic import AnthropicProvider
 from caesar.llm.embeddings import Embedder, StubEmbedder, VoyageEmbedder
 from caesar.llm.gateway import LLMGateway
+from caesar.llm.openai import OpenAIProvider
 from caesar.log import configure_logging, get_logger
 from caesar.memory.retention import RetentionSweeper
 from caesar.memory.semantic import SemanticIndexer
@@ -46,14 +47,39 @@ from caesar.tracing import setup_tracing, shutdown_tracing
 
 
 def _default_gateway(settings: CaesarSettings) -> LLMGateway:
-    if settings.llm.api_key is None:
-        raise RuntimeError(
-            "CAESAR_LLM__API_KEY is required when no gateway is injected.",
+    """Construct the configured LLM provider (ADR-0026).
+
+    Switches on ``settings.llm.provider``. Falls back to the legacy
+    top-level ``CAESAR_LLM__API_KEY`` env var for Anthropic when the
+    nested ``llm.anthropic.api_key`` is unset, so pre-v1.1 deployments
+    upgrade without an env-file edit.
+    """
+
+    if settings.llm.provider == "anthropic":
+        api_key = settings.llm.anthropic.api_key or settings.llm.api_key
+        if api_key is None:
+            raise RuntimeError(
+                "CAESAR_LLM__ANTHROPIC__API_KEY (or legacy CAESAR_LLM__API_KEY) "
+                "is required when provider=anthropic and no gateway is injected.",
+            )
+        return AnthropicProvider(
+            api_key=api_key.get_secret_value(),
+            default_model=settings.llm.model,
+            default_max_tokens=settings.llm.max_tokens,
         )
-    return AnthropicProvider(
-        api_key=settings.llm.api_key.get_secret_value(),
-        default_model=settings.llm.model,
-        default_max_tokens=settings.llm.max_tokens,
+    if settings.llm.provider == "openai":
+        if settings.llm.openai.api_key is None:
+            raise RuntimeError(
+                "CAESAR_LLM__OPENAI__API_KEY is required when provider=openai.",
+            )
+        return OpenAIProvider(
+            api_key=settings.llm.openai.api_key.get_secret_value(),
+            default_model=settings.llm.model,
+            default_max_tokens=settings.llm.max_tokens,
+            base_url=settings.llm.openai.base_url,
+        )
+    raise RuntimeError(  # pragma: no cover - exhaustively matched above
+        f"unknown LLM provider: {settings.llm.provider!r}",
     )
 
 
