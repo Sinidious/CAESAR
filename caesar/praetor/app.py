@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from caesar import __version__
-from caesar.bus.client import Bus
+from caesar.bus.client import Bus, BusAuth
 from caesar.config import CaesarSettings, LLMProvider, get_settings
 from caesar.db.audit import AuditLogger
 from caesar.db.engine import create_engine
@@ -127,11 +127,31 @@ def _default_ha(settings: CaesarSettings) -> HAClient | None:
 
 
 def _default_bus(settings: CaesarSettings) -> Bus | None:
-    """Construct the Bus when CAESAR_BUS__ENABLED is true; else ``None``."""
+    """Construct the Bus when CAESAR_BUS__ENABLED is true; else ``None``.
+
+    When ``CAESAR_BUS__AUTH__ENABLED`` is also set (ADR-0027), the
+    bus is constructed with the NKEY signing material so cross-host
+    workers authenticate.
+    """
 
     if not settings.bus.enabled:
         return None
-    return Bus(settings.bus.url, connect_timeout=settings.bus.connect_timeout)
+    auth: BusAuth | None = None
+    if settings.bus.auth.enabled:
+        auth = BusAuth(
+            nkey_seed=(
+                settings.bus.auth.nkey_seed.get_secret_value()
+                if settings.bus.auth.nkey_seed is not None
+                else None
+            ),
+            nkey_seed_path=settings.bus.auth.nkey_seed_path,
+            user=settings.bus.auth.user,
+        )
+    return Bus(
+        settings.bus.url,
+        connect_timeout=settings.bus.connect_timeout,
+        auth=auth,
+    )
 
 
 def _default_embedder(settings: CaesarSettings) -> Embedder:

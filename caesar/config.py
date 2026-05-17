@@ -146,20 +146,42 @@ class PolicySettings(BaseModel):
     rules_path: Path | None = None
 
 
+class BusAuthSettings(BaseModel):
+    """NATS auth (ADR-0027). Opt-in: default is no auth.
+
+    Set ``enabled=true`` and supply *either* ``nkey_seed_path`` (a
+    file on disk holding the ed25519 seed) *or* ``nkey_seed`` (the
+    seed inline, useful for tests). ``user`` is optional and only
+    needed when the operator's ``nats-server.conf`` pairs the NKEY
+    with a named user entry rather than listing it directly under
+    ``authorization.users``.
+    """
+
+    enabled: bool = False
+    nkey_seed_path: Path | None = None
+    nkey_seed: SecretStr | None = None
+    user: str | None = None
+
+
 class BusSettings(BaseModel):
     """Message-bus (NATS) configuration (ADR-0009).
 
     Disabled by default — Praetor runs fine without NATS for the chat
     and devices paths. Enable it when you want to bring up the Legion
     worker pool (set ``CAESAR_BUS__ENABLED=true`` and point ``url`` at
-    your nats-server). v0.3 ships single-node localhost only; auth is
-    a later milestone.
+    your nats-server).
+
+    v0.3 → v1.1 shipped single-node localhost only. v1.2 (ADR-0027)
+    adds NKEY-per-identity auth via :class:`BusAuthSettings` so the
+    pool can span hosts; the default stays no-auth so existing
+    single-host operators don't see a behaviour change.
     """
 
     enabled: bool = False
     url: str = "nats://127.0.0.1:4222"
     connect_timeout: float = 5.0
     request_timeout: float = 5.0
+    auth: BusAuthSettings = Field(default_factory=BusAuthSettings)
 
 
 class MemorySettings(BaseModel):
