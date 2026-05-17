@@ -91,6 +91,21 @@ class BusSettings(BaseModel):
     request_timeout: float = 5.0
 
 
+class LegionSettings(BaseModel):
+    """Legion worker configuration (ADR-0009 + ADR-0010).
+
+    ``inprocess_workers`` lists worker names that Praetor itself should
+    instantiate at lifespan start (each still talks to the registry over
+    NATS). The default ``["memory_recall"]`` is enough for v0.3's gate;
+    operators can add their own out-of-process workers later without
+    changing this list.
+    """
+
+    inprocess_workers: list[str] = Field(default_factory=lambda: ["memory_recall"])
+    recall_default_limit: int = 10
+    recall_max_limit: int = 100
+
+
 class CaesarSettings(BaseSettings):
     """Top-level settings; all subsystems read through this."""
 
@@ -109,6 +124,7 @@ class CaesarSettings(BaseSettings):
     ha: HASettings = Field(default_factory=HASettings)
     policy: PolicySettings = Field(default_factory=PolicySettings)
     bus: BusSettings = Field(default_factory=BusSettings)
+    legion: LegionSettings = Field(default_factory=LegionSettings)
 
 
 @lru_cache(maxsize=1)

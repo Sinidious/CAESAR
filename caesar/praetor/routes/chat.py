@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from caesar.config import CaesarSettings
 from caesar.db.audit import AuditLogger
 from caesar.ha.client import HAClient
+from caesar.legion.registry import WorkerRegistry
 from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway
 from caesar.policy.engine import Policy
 from caesar.praetor.graph import build_brain_graph
@@ -59,6 +60,10 @@ def _get_policy(request: Request) -> Policy:
     return cast(Policy, request.app.state.policy)
 
 
+def _get_registry(request: Request) -> WorkerRegistry | None:
+    return cast(WorkerRegistry | None, request.app.state.registry)
+
+
 @router.post("/v1/chat", response_model=ChatResponseBody)
 async def chat(
     body: ChatRequest,
@@ -67,9 +72,10 @@ async def chat(
     audit: Annotated[AuditLogger, Depends(_get_audit)],
     ha: Annotated[HAClient | None, Depends(_get_ha)],
     policy: Annotated[Policy, Depends(_get_policy)],
+    registry: Annotated[WorkerRegistry | None, Depends(_get_registry)],
 ) -> ChatResponseBody:
     decision_id = uuid.uuid4().hex
-    graph = build_brain_graph(gateway=gateway, ha=ha, policy=policy, audit=audit)
+    graph = build_brain_graph(gateway=gateway, ha=ha, policy=policy, audit=audit, registry=registry)
     state = await graph.ainvoke(
         {
             "messages": body.messages,

@@ -18,7 +18,9 @@ from caesar.config import CaesarSettings, get_settings
 from caesar.db.audit import AuditLogger
 from caesar.db.engine import create_engine
 from caesar.ha.client import HAClient
+from caesar.legion.memory_recall import MemoryRecallWorker
 from caesar.legion.registry import WorkerRegistry
+from caesar.legion.worker import Worker
 from caesar.llm.anthropic import AnthropicProvider
 from caesar.llm.gateway import LLMGateway
 from caesar.log import configure_logging, get_logger
@@ -60,6 +62,25 @@ def _default_bus(settings: CaesarSettings) -> Bus | None:
     return Bus(settings.bus.url, connect_timeout=settings.bus.connect_timeout)
 
 
+def _build_inprocess_worker(
+    name: str,
+    *,
+    bus: Bus,
+    engine: AsyncEngine,
+    settings: CaesarSettings,
+) -> Worker:
+    """Construct one of the in-process workers from its config name."""
+
+    if name == "memory_recall":
+        return MemoryRecallWorker(
+            bus,
+            engine,
+            default_limit=settings.legion.recall_default_limit,
+            max_limit=settings.legion.recall_max_limit,
+        )
+    raise ValueError(f"unknown in-process worker: {name!r}")
+
+
 def _default_policy(settings: CaesarSettings) -> Policy:
     """Build the configured Policy, or fall back to the deny-all stub.
 
@@ -99,10 +120,22 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        workers: list[Worker] = []
         if bus is not None:
             await bus.connect()
         if registry is not None:
             await registry.start()
+        if bus is not None:
+            for name in settings.legion.inprocess_workers:
+                worker = _build_inprocess_worker(name, bus=bus, engine=engine, settings=settings)
+                await worker.start()
+                workers.append(worker)
+        elif settings.legion.inprocess_workers:
+            logger.warning(
+                "praetor.inprocess_workers_skipped",
+                reason="bus disabled",
+                workers=settings.legion.inprocess_workers,
+            )
         logger.info(
             "praetor.startup",
             version=__version__,
@@ -110,10 +143,13 @@ def create_app(
             ha_configured=ha is not None,
             policy=type(policy).__name__,
             bus_enabled=bus is not None,
+            inprocess_workers=[w.worker_id for w in workers],
         )
         try:
             yield
         finally:
+            for worker in reversed(workers):
+                await worker.stop()
             if registry is not None:
                 await registry.stop()
             if bus is not None:

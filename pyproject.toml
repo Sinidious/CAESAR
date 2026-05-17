@@ -126,7 +126,16 @@ minversion = "8.0"
 addopts = ["-ra", "--strict-markers", "--strict-config"]
 testpaths = ["tests"]
 xfail_strict = true
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # capsys closes its captured stdout when the test ends; any async
+    # log emission that fires during gc (e.g. uvloop/asyncio cleanup
+    # of pending tasks holding a logger.info coroutine) writes to it
+    # and raises an unraisable I/O error. The structlog handler's
+    # binding-to-sys.stdout-at-config-time is the root cause; silencing
+    # the warning is safer than redirecting logging in every test.
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
 asyncio_mode = "auto"
 
 [tool.coverage.run]
