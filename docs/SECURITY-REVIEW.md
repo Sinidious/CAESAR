@@ -81,7 +81,7 @@ know?".
 | SR-005 | Medium   | Allow-list policy does not constrain `target` / `data` parameters       | Mitigated | `entity_id` constraints (this branch); other target fields + `data` deferred |
 | SR-006 | Low      | Dashboard cookie is signed by the same key it authenticates             | Open   |           |
 | SR-007 | Low      | Dashboard session TTL is 30 days by default                             | Closed | Default cut to 7 days (this branch) |
-| SR-008 | Low      | Audit-log row size is unbounded                                         | Open   |           |
+| SR-008 | Low      | Audit-log row size is unbounded                                         | Closed | Per-string clamp at write (this branch, default 16KB) |
 | SR-009 | Low      | NATS bus has no auth in single-node default                             | Open   |           |
 | SR-010 | Low      | Dashboard responses lack `Content-Security-Policy` headers              | Closed | CSP + X-Frame-Options + nosniff middleware (this branch) |
 | SR-011 | Low      | Releases are unsigned (no Sigstore / cosign / SBOM attestation)         | Open   |           |
@@ -235,14 +235,23 @@ settings store and is a separate row when raised.
 
 ### SR-008 — Unbounded audit-log row size
 
-A chat reply or tool result of arbitrary size is stored verbatim
-in `audit_log.payload`. [ADR-0020](adr/0020-memory-retention-ttl.md)
-adds time-based TTL but no per-row cap. A pathological LLM output
-could bloat the DB.
+**Status: Closed.**
 
-Mitigation: clamp `payload` JSON to N kilobytes at write time and
-truncate `reply` with a marker. The audit log isn't meant to be
-a transcript archive.
+[`audit_clamp.py`](https://github.com/Sinidious/CAESAR/blob/main/caesar/db/audit_clamp.py)
+walks the payload dict recursively and replaces any string longer
+than `CAESAR_MEMORY__AUDIT_MAX_STRING_CHARS` (default **16384**,
+i.e. 16KB) with a truncated version ending in
+`… [truncated, N chars total]`. Numbers, bools, null, and the
+container shape itself are preserved.
+
+Triggered inside `AuditLogger.record` so every audit write — chat
+replies, tool results, service-call denials, dashboard events — is
+bounded. The writer also emits a `audit.payload_truncated`
+WARNING when a clamp fires so the operator notices.
+
+Per-string clamping (rather than total-payload clamping) gives a
+predictable per-row ceiling that's easy to reason about. The
+audit log is a decision record, not a transcript archive.
 
 ### SR-009 — NATS bus is unauth'd
 
