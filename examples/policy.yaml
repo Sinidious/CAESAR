@@ -6,19 +6,36 @@
 #
 # Schema (v1):
 #   version: 1
-#   allowed_services: a flat list of "domain.service" identifiers
-#                     that CAESAR may invoke through the HA Bridge.
-#                     Anything not listed here is denied.
+#   allowed_services: a list of allow-list entries. Two forms accepted:
 #
-# Conditions, per-entity globs, and `require_confirm` verdicts are
-# planned for a follow-up; this is the MVP slice.
+#     - "domain.service"             # bare string: any params allowed
+#     - service: "domain.service"    # object form: pin entity_id
+#       target:
+#         entity_id: [entity, ...]
+#
+#     Bare-string entries stay backward compatible. Object entries
+#     constrain target.entity_id (SR-005) so a prompt-injected
+#     "turn off every light" can't slip past the allow-list.
+#     Multiple entries for the same service union together (OR).
+#
+# Other target fields (device_id, area_id), the `data` payload, and
+# `require_confirm` verdicts are planned for a follow-up.
 
 version: 1
 allowed_services:
+  # Bare-string entries: any params allowed.
   - light.turn_on
-  - light.turn_off
   - light.toggle
   - switch.turn_on
   - switch.turn_off
   - switch.toggle
   - homeassistant.check_config
+
+  # Constrained entry (SR-005): light.turn_off is only allowed for
+  # specific lights. A call asking for `entity_id: [light.everything]`
+  # would be denied.
+  - service: light.turn_off
+    target:
+      entity_id:
+        - light.kitchen
+        - light.living_room

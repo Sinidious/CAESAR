@@ -9,14 +9,20 @@ from caesar.ha.client import HAClient
 from caesar.llm.gateway import ChatMessage, ChatResponse, ToolUse
 from caesar.policy.allowlist import AllowlistPolicy
 from caesar.policy.engine import DenyAllPolicy, Policy
-from caesar.policy.yaml_loader import RulesConfig
+from caesar.policy.yaml_loader import AllowedServiceRule, RulesConfig
 from caesar.praetor.graph import build_brain_graph
 from tests.conftest import FakeGateway
 
 
 def _allow_light_policy() -> Policy:
     return AllowlistPolicy(
-        RulesConfig(version=1, allowed_services=["light.turn_on", "light.turn_off"])
+        RulesConfig(
+            version=1,
+            allowed_services=[
+                AllowedServiceRule(service="light.turn_on"),
+                AllowedServiceRule(service="light.turn_off"),
+            ],
+        )
     )
 
 

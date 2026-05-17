@@ -11,7 +11,7 @@ from caesar.ha.client import HAClient
 from caesar.ha.models import ServiceCall
 from caesar.policy.allowlist import AllowlistPolicy
 from caesar.policy.engine import DenyAllPolicy
-from caesar.policy.yaml_loader import RulesConfig
+from caesar.policy.yaml_loader import AllowedServiceRule, RulesConfig
 from caesar.praetor.dispatch import dispatch_service_call
 
 
@@ -19,7 +19,12 @@ async def test_allow_path_calls_ha_and_audits(
     engine: AsyncEngine, mock_ha: HAClient, ha_service_calls: list[dict[str, Any]]
 ) -> None:
     audit = AuditLogger(engine)
-    policy = AllowlistPolicy(RulesConfig(version=1, allowed_services=["light.turn_on"]))
+    policy = AllowlistPolicy(
+        RulesConfig(
+            version=1,
+            allowed_services=[AllowedServiceRule(service="light.turn_on")],
+        )
+    )
     outcome = await dispatch_service_call(
         ServiceCall(domain="light", service="turn_on"),
         ha=mock_ha,

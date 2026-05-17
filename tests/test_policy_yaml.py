@@ -13,6 +13,9 @@ def _write(tmp_path: Path, content: str) -> Path:
     return p
 
 
+# --- backward-compatible bare-string parsing ---------------------------------
+
+
 def test_load_rules_parses_flat_list(tmp_path: Path) -> None:
     p = _write(
         tmp_path,
@@ -20,7 +23,10 @@ def test_load_rules_parses_flat_list(tmp_path: Path) -> None:
     )
     cfg = load_rules(p)
     assert cfg.version == 1
-    assert cfg.allowed_services == ["light.turn_on", "switch.toggle"]
+    services = [rule.service for rule in cfg.allowed_services]
+    assert services == ["light.turn_on", "switch.toggle"]
+    # All bare-string rules are permissive.
+    assert all(rule.is_permissive for rule in cfg.allowed_services)
 
 
 def test_load_rules_accepts_empty_list(tmp_path: Path) -> None:
@@ -58,7 +64,7 @@ def test_load_rules_rejects_malformed_service_identifiers(tmp_path: Path) -> Non
         tmp_path,
         "version: 1\nallowed_services:\n  - LightTurnOn\n  - 'no.dot.in_three'\n",
     )
-    with pytest.raises(PolicyRulesError, match="invalid service identifiers"):
+    with pytest.raises(PolicyRulesError, match="invalid service identifier"):
         load_rules(p)
 
 
@@ -68,5 +74,74 @@ def test_repo_example_policy_is_valid() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     example = repo_root / "examples" / "policy.yaml"
     cfg = load_rules(example)
-    assert "light.turn_on" in cfg.allowed_services
-    assert all("." in s for s in cfg.allowed_services)
+    services = {rule.service for rule in cfg.allowed_services}
+    assert "light.turn_on" in services
+    assert all("." in rule.service for rule in cfg.allowed_services)
+
+
+# --- SR-005: object-form entries with entity_id constraints ------------------
+
+
+def test_load_rules_parses_object_form_with_entity_id(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        """\
+version: 1
+allowed_services:
+  - light.turn_on
+  - service: light.turn_off
+    target:
+      entity_id: [light.kitchen, light.living_room]
+""",
+    )
+    cfg = load_rules(p)
+    assert len(cfg.allowed_services) == 2
+    assert cfg.allowed_services[0].service == "light.turn_on"
+    assert cfg.allowed_services[0].is_permissive is True
+
+    constrained = cfg.allowed_services[1]
+    assert constrained.service == "light.turn_off"
+    assert constrained.is_permissive is False
+    assert constrained.target is not None
+    assert constrained.target.entity_id == ["light.kitchen", "light.living_room"]
+
+
+def test_load_rules_object_form_without_target_is_permissive(tmp_path: Path) -> None:
+    """An object entry with no target block is the same as a bare string."""
+
+    p = _write(
+        tmp_path,
+        """\
+version: 1
+allowed_services:
+  - service: switch.toggle
+""",
+    )
+    cfg = load_rules(p)
+    assert cfg.allowed_services[0].is_permissive is True
+
+
+def test_load_rules_rejects_malformed_entity_id(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        """\
+version: 1
+allowed_services:
+  - service: light.turn_on
+    target:
+      entity_id: [LightKitchen, "no.dot.in_three"]
+""",
+    )
+    with pytest.raises(PolicyRulesError, match="invalid entity_id"):
+        load_rules(p)
+
+
+def test_load_rules_rejects_unknown_entry_shape(tmp_path: Path) -> None:
+    """A scalar that isn't a string or mapping is rejected."""
+
+    p = _write(
+        tmp_path,
+        "version: 1\nallowed_services:\n  - 42\n",
+    )
+    with pytest.raises(PolicyRulesError, match="unsupported allow-list entry"):
+        load_rules(p)
