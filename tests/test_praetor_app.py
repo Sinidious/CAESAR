@@ -141,6 +141,26 @@ async def test_unknown_inprocess_worker_raises(nats_url: str, db_url: str, fake_
             pass
 
 
+async def test_no_warning_when_bus_disabled_and_no_workers(
+    db_url: str, fake_gateway, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Bus disabled + empty inprocess_workers → no skip warning."""
+
+    from caesar.config import LegionSettings
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        legion=LegionSettings(inprocess_workers=[]),
+    )
+    app = create_app(settings=settings, gateway=fake_gateway)
+    async with app.router.lifespan_context(app):
+        pass
+    out = capsys.readouterr().out
+    assert "inprocess_workers_skipped" not in out
+
+
 async def test_inprocess_workers_warning_when_bus_disabled(
     db_url: str, fake_gateway, capsys: pytest.CaptureFixture[str]
 ) -> None:
