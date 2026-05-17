@@ -88,9 +88,7 @@ class WebSearchClient:
         except httpx.HTTPError as exc:
             raise WebSearchError(f"SearXNG request failed: {exc}") from exc
         if resp.status_code >= 400:
-            raise WebSearchError(
-                f"SearXNG returned HTTP {resp.status_code}: {resp.text[:200]}"
-            )
+            raise WebSearchError(f"SearXNG returned HTTP {resp.status_code}: {resp.text[:200]}")
         try:
             body = resp.json()
         except ValueError as exc:
