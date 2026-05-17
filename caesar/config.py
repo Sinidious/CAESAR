@@ -103,10 +103,16 @@ class MemorySettings(BaseModel):
 
     The sweep deletes ``audit_log`` rows older than ``retention_days``;
     it runs at startup and then every ``sweep_interval_seconds``.
+
+    ``audit_max_string_chars`` clamps every string value in an audit
+    payload to at most N characters at write time (SR-008). Long
+    strings get a ``[truncated, N chars total]`` marker. Set to 0 to
+    disable.
     """
 
     retention_days: int = 90
     sweep_interval_seconds: float = 3600.0
+    audit_max_string_chars: int = 16384
 
 
 class DashboardSettings(BaseModel):
