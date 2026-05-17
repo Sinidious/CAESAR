@@ -31,7 +31,7 @@ from caesar.config import (
     LogSettings,
 )
 from caesar.praetor.app import create_app
-from caesar.praetor.dashboard.auth import make_session_cookie
+from caesar.praetor.dashboard.auth import derive_signing_key, make_session_cookie
 
 DASHBOARD_TOKEN = "the-token"
 
@@ -58,7 +58,11 @@ async def client(app) -> AsyncIterator[AsyncClient]:
         app.router.lifespan_context(app),
     ):
         client = ac
-        client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+        sample_settings = DashboardSettings(token=SecretStr(DASHBOARD_TOKEN))
+        client.cookies.set(
+            "caesar_dashboard",
+            make_session_cookie(derive_signing_key(sample_settings)),
+        )
         yield client
 
 

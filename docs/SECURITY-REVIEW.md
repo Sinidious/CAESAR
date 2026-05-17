@@ -79,7 +79,7 @@ know?".
 | SR-003 | Medium   | `/metrics` is unauthenticated and exposes worker/event-type cardinality | Open   |           |
 | SR-004 | Medium   | Tool-result strings re-enter the LLM as user content (prompt-injection)| Mitigated | Always-on safety preamble + verified `tool_result` block channel (this branch) |
 | SR-005 | Medium   | Allow-list policy does not constrain `target` / `data` parameters       | Mitigated | `entity_id` constraints (this branch); other target fields + `data` deferred |
-| SR-006 | Low      | Dashboard cookie is signed by the same key it authenticates             | Open   |           |
+| SR-006 | Low      | Dashboard cookie is signed by the same key it authenticates             | Closed | HMAC-derived signing key + optional separate `signing_key` (this branch) |
 | SR-007 | Low      | Dashboard session TTL is 30 days by default                             | Closed | Default cut to 7 days (this branch) |
 | SR-008 | Low      | Audit-log row size is unbounded                                         | Closed | Per-string clamp at write (this branch, default 16KB) |
 | SR-009 | Low      | NATS bus has no auth in single-node default                             | Open   |           |
@@ -212,12 +212,29 @@ Tracked as a follow-up; will become its own SR-NNN row when raised.
 
 ### SR-006 — Dashboard signing key = auth token
 
-`itsdangerous` cookies are signed with the dashboard token itself
-([auth.py](https://github.com/Sinidious/CAESAR/blob/main/caesar/praetor/dashboard/auth.py)).
-If the token leaks, the attacker has both the auth secret *and*
-the cookie signing key in one go. Defence in depth would derive
-the signing key separately (`HKDF(token, salt)` or
-`CAESAR_DASHBOARD__SIGNING_KEY`).
+**Status: Closed.**
+
+Cookie signing is now decoupled from the auth bearer
+([`auth.py`](https://github.com/Sinidious/CAESAR/blob/main/caesar/praetor/dashboard/auth.py)).
+Two modes:
+
+- **Default — derived signing key.** When
+  `CAESAR_DASHBOARD__SIGNING_KEY` is unset, the cookie HMAC key is
+  derived as `HMAC-SHA256("caesar.dashboard.signing.v1", token).hex()`.
+  An attacker reading the token *can* re-derive the key, but the
+  signing material on disk is one step removed and any future
+  storage / log leak of the derived value alone is useless without
+  the token. Legacy "rotate the token, log everyone out" behaviour
+  is preserved (the derived key changes with the token).
+- **Operator-supplied — separate signing key.** When
+  `CAESAR_DASHBOARD__SIGNING_KEY` is set, the cookie HMAC uses that
+  key directly, independent of the auth token. Operators can now:
+  - rotate the bearer secret without invalidating sessions, *or*
+  - rotate `signing_key` alone to revoke every outstanding session
+    (the "log out everywhere" hook this gap also asked for).
+
+The login form still accepts the token; what changes is what gets
+into the cookie's signature material.
 
 ### SR-007 — 30-day dashboard sessions
 

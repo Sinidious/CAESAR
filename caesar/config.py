@@ -124,6 +124,13 @@ class DashboardSettings(BaseModel):
     """
 
     token: SecretStr | None = None
+    # Optional separate key for signing session cookies (SR-006).
+    # When set, the cookie HMAC is decoupled from the auth token:
+    # rotating the token still revokes sessions only if the operator
+    # *also* rotates this key. When unset, the signing key is derived
+    # from the token (HMAC-SHA256) so the legacy "rotate the token to
+    # log everyone out" behaviour is preserved.
+    signing_key: SecretStr | None = None
     history_limit: int = 100
     cookie_name: str = "caesar_dashboard"
     # 7-day default (SR-007). Long enough to avoid relogging in from
