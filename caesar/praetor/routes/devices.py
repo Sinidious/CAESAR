@@ -1,9 +1,8 @@
 """``/v1/devices`` — read HA state, ask the policy, call HA services.
 
 The route is the canonical write path into the home: every call goes
-:class:`Policy` → :class:`HAClient`. A denial yields HTTP 403 and an
-audit row labelled ``policy.denied``; a successful call yields an
-audit row labelled ``service.called``.
+:class:`Policy` → :class:`HAClient`, via :func:`dispatch_service_call`
+so the brain's tool-use loop shares the same path.
 """
 
 from __future__ import annotations
@@ -16,6 +15,7 @@ from caesar.db.audit import AuditLogger
 from caesar.ha.client import HAClient
 from caesar.ha.models import EntityState, ServiceCall
 from caesar.policy.engine import Policy
+from caesar.praetor.dispatch import dispatch_service_call
 
 router = APIRouter(tags=["devices"])
 
@@ -63,26 +63,18 @@ async def call_service(
     policy: Annotated[Policy, Depends(_get_policy)],
     audit: Annotated[AuditLogger, Depends(_get_audit)],
 ) -> dict[str, object]:
-    decision = policy.evaluate(call)
-    payload = {
-        "domain": call.domain,
-        "service": call.service,
-        "target": call.target,
-        "data": call.data,
-        "decision": decision.model_dump(),
-    }
-    if not decision.allowed:
-        audit_id = await audit.record("policy.denied", payload)
+    outcome = await dispatch_service_call(call, ha=ha, policy=policy, audit=audit)
+    if not outcome.decision.allowed:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            {"reason": decision.reason, "audit_log_id": audit_id},
+            {
+                "reason": outcome.decision.reason,
+                "audit_log_id": outcome.audit_log_id,
+            },
         )
-
-    await ha.call_service(call)
-    audit_id = await audit.record("service.called", payload)
     return {
         "domain": call.domain,
         "service": call.service,
         "target": call.target,
-        "audit_log_id": audit_id,
+        "audit_log_id": outcome.audit_log_id,
     }

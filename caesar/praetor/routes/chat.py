@@ -1,8 +1,11 @@
-"""``/v1/chat`` — the v0.1 gate endpoint.
+"""``/v1/chat`` — the v0.2 gate endpoint.
 
-Accepts a list of messages, runs them through the echo graph, writes
-an audit row, returns the assistant's reply plus the decision and
-audit ids so callers can correlate.
+Accepts a list of messages, runs them through the brain graph
+(:func:`caesar.praetor.graph.build_brain_graph`), and returns the
+final assistant reply plus the decision and audit ids. If the model
+emits ``call_service`` tool calls, the graph dispatches them through
+the Policy Engine + HA Bridge before continuing — that's how
+"turn on the kitchen light" lands as an actual HA service call.
 """
 
 from __future__ import annotations
@@ -15,8 +18,10 @@ from pydantic import BaseModel, Field
 
 from caesar.config import CaesarSettings
 from caesar.db.audit import AuditLogger
+from caesar.ha.client import HAClient
 from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway
-from caesar.praetor.graph import build_echo_graph
+from caesar.policy.engine import Policy
+from caesar.praetor.graph import build_brain_graph
 
 router = APIRouter(tags=["chat"])
 
@@ -46,21 +51,32 @@ def _get_audit(request: Request) -> AuditLogger:
     return cast(AuditLogger, request.app.state.audit)
 
 
+def _get_ha(request: Request) -> HAClient | None:
+    return cast(HAClient | None, request.app.state.ha)
+
+
+def _get_policy(request: Request) -> Policy:
+    return cast(Policy, request.app.state.policy)
+
+
 @router.post("/v1/chat", response_model=ChatResponseBody)
 async def chat(
     body: ChatRequest,
     settings: Annotated[CaesarSettings, Depends(_get_settings)],
     gateway: Annotated[LLMGateway, Depends(_get_gateway)],
     audit: Annotated[AuditLogger, Depends(_get_audit)],
+    ha: Annotated[HAClient | None, Depends(_get_ha)],
+    policy: Annotated[Policy, Depends(_get_policy)],
 ) -> ChatResponseBody:
     decision_id = uuid.uuid4().hex
-    graph = build_echo_graph(gateway)
+    graph = build_brain_graph(gateway=gateway, ha=ha, policy=policy, audit=audit)
     state = await graph.ainvoke(
         {
             "messages": body.messages,
             "system": settings.llm.system_prompt,
             "model": body.model or settings.llm.model,
             "decision_id": decision_id,
+            "iteration": 0,
         }
     )
     response: ChatResponse = state["response"]
@@ -74,6 +90,7 @@ async def chat(
             "output_tokens": response.output_tokens,
             "messages": [m.model_dump() for m in body.messages],
             "reply": response.content,
+            "iterations": state.get("iteration", 1),
         },
     )
 

@@ -33,7 +33,7 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0005 | [Python 3.11 as the primary runtime](0005-python-3-11-runtime.md)         | Accepted |
 | 0006 | [Praetor on FastAPI + LangGraph](0006-praetor-runtime.md)                 | Accepted |
 | 0007 | [Home Assistant as the device control plane](0007-home-assistant-bridge.md) | Accepted |
-| 0008 | [Voice satellites speak Wyoming](0008-voice-wyoming.md)                   | Accepted |
+| 0008 | [Voice input via client-side transcription](0008-voice-wyoming.md)        | Accepted |
 | 0009 | [NATS as the message bus](0009-message-bus-nats.md)                       | Accepted |
 | 0010 | [Hybrid memory: SQLite + vector store](0010-memory-hybrid.md)             | Accepted |
 | 0011 | [Provider-agnostic LLM Gateway](0011-llm-gateway.md)                      | Accepted |

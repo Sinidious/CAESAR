@@ -28,11 +28,13 @@ see what we're building?
 
 ## v0.2 — Speak to the house
 
-**Question:** Can I say "turn on the kitchen light" out loud and have
-it happen?
+**Question:** Can I say "turn on the kitchen light" (from my phone's
+dictation, or any HTTP client) and have it happen?
 
 - HA Bridge (REST + WS, single token).
-- Voice Satellite via Wyoming.
+- LLM tool-use in `/v1/chat` that lets the brain call HA services
+  through the Policy Engine (no dedicated voice-satellite hardware;
+  see ADR-0008 for the rewrite away from Wyoming).
 - Policy Engine with at least one rule loaded from YAML.
 
 ## v0.3 — Legion of one

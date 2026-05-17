@@ -16,7 +16,7 @@ from caesar.db.engine import create_engine
 from caesar.db.migrate import upgrade_to_head
 from caesar.ha.client import HAClient
 from caesar.ha.models import ServiceCall
-from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway
+from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway, ToolDefinition
 from caesar.policy.engine import Policy, PolicyDecision
 from tests.fakeha import VALID_TOKEN, make_rest_app
 
@@ -24,14 +24,22 @@ from tests.fakeha import VALID_TOKEN, make_rest_app
 class FakeGateway:
     """A deterministic LLMGateway for tests.
 
-    Records every call and returns a canned reply. Implements the
-    Protocol structurally so type checkers accept it where an
-    ``LLMGateway`` is required.
+    Records every call and returns a canned reply. If ``scripted`` is
+    non-empty, the next call pops a response from that queue instead
+    of returning the default text — useful for driving the brain
+    graph's tool-use loop deterministically.
+
+    Implements the Protocol structurally so type checkers accept it
+    wherever an ``LLMGateway`` is required.
     """
 
     def __init__(self, reply: str = "hello back") -> None:
         self.reply = reply
-        self.calls: list[dict[str, object]] = []
+        self.calls: list[dict[str, Any]] = []
+        self.scripted: list[ChatResponse] = []
+
+    def queue(self, response: ChatResponse) -> None:
+        self.scripted.append(response)
 
     async def complete(
         self,
@@ -40,6 +48,7 @@ class FakeGateway:
         system: str | None = None,
         model: str | None = None,
         max_tokens: int | None = None,
+        tools: list[ToolDefinition] | None = None,
     ) -> ChatResponse:
         self.calls.append(
             {
@@ -47,8 +56,11 @@ class FakeGateway:
                 "system": system,
                 "model": model,
                 "max_tokens": max_tokens,
+                "tools": tools,
             }
         )
+        if self.scripted:
+            return self.scripted.pop(0)
         return ChatResponse(
             content=self.reply,
             model=model or "fake-model",
