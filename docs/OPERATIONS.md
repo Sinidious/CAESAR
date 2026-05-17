@@ -114,6 +114,46 @@ scrape_configs:
     scrape_interval: 30s
 ```
 
+
+## Tracing
+
+CAESAR can emit OpenTelemetry traces. The SDK is an opt-in extra
+(ADR-0023) so the default install stays lean for users who don't run
+a collector.
+
+```sh
+pip install 'caesar[otel]'
+```
+
+When the extra is installed, tracing turns itself on at startup. Point
+Praetor at any OTLP/HTTP-compatible backend with the standard OTel env
+vars:
+
+```sh
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+export OTEL_SERVICE_NAME=caesar-praetor   # defaults to this anyway
+```
+
+To turn tracing off temporarily without uninstalling, set
+`OTEL_SDK_DISABLED=true`.
+
+What you get on a `/v1/chat` request:
+
+- A FastAPI server span for the HTTP request.
+- A `brain.node.call_llm` span per iteration of the brain graph.
+- A `brain.node.dispatch_tools` span when the model invoked tools,
+  with one child `brain.tool` span per tool call.
+- An `llm.complete` span around the Anthropic SDK call with GenAI
+  semantic-convention attributes (`gen_ai.system`,
+  `gen_ai.request.model`, `gen_ai.usage.input_tokens`,
+  `gen_ai.usage.output_tokens`).
+- SQLAlchemy spans for every audit/memory query that ran in-band.
+
+Default sampler is `ParentBased(AlwaysOn)` — fine for homelab QPS.
+Override with the spec's env vars
+(`OTEL_TRACES_SAMPLER=parentbased_traceidratio` +
+`OTEL_TRACES_SAMPLER_ARG=0.1`) if you start fronting public endpoints.
+
 ## Where the data lives
 
 - `./var/caesar.sqlite3` — the durable store.

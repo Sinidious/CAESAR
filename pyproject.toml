@@ -64,6 +64,12 @@ docs = [
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.6",
 ]
+otel = [
+    "opentelemetry-sdk>=1.30.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.30.0",
+    "opentelemetry-instrumentation-fastapi>=0.51b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.51b0",
+]
 
 [project.scripts]
 caesar = "caesar.cli:app"
@@ -124,6 +130,18 @@ check_untyped_defs = true
 
 [[tool.mypy.overrides]]
 module = ["langgraph.*", "voyageai.*"]
+ignore_missing_imports = true
+
+# OpenTelemetry is an opt-in extra (ADR-0023). CI doesn't install it,
+# so mypy can't see its stubs; the tracing module is fully type-safe
+# without them by virtue of the dynamic-import shape.
+[[tool.mypy.overrides]]
+module = [
+    "opentelemetry.*",
+    "opentelemetry.exporter.*",
+    "opentelemetry.instrumentation.*",
+    "opentelemetry.sdk.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

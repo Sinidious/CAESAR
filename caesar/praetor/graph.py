@@ -45,6 +45,7 @@ from caesar.llm.gateway import (
 from caesar.log import bind_decision, get_logger
 from caesar.policy.engine import Policy
 from caesar.praetor.dispatch import dispatch_service_call
+from caesar.tracing import span
 
 MAX_ITERATIONS_DEFAULT = 5
 
@@ -214,12 +215,20 @@ def build_brain_graph(
                 turns=len(state.get("messages", [])),
                 tools=[t.name for t in tools],
             )
-            response = await gateway.complete(
-                state.get("messages", []),
-                system=state.get("system"),
-                model=state.get("model"),
-                tools=tools or None,
-            )
+            with span(
+                "brain.node.call_llm",
+                **{
+                    "caesar.decision_id": state["decision_id"],
+                    "caesar.iteration": iteration,
+                    "caesar.turns": len(state.get("messages", [])),
+                },
+            ):
+                response = await gateway.complete(
+                    state.get("messages", []),
+                    system=state.get("system"),
+                    model=state.get("model"),
+                    tools=tools or None,
+                )
             assistant_msg = ChatMessage(
                 role="assistant",
                 content=response.content,
@@ -234,23 +243,33 @@ def build_brain_graph(
     async def dispatch_tools(state: BrainState) -> BrainState:
         response = state["response"]
         decision_id = state["decision_id"]
-        with bind_decision(decision_id):
+        with (
+            bind_decision(decision_id),
+            span(
+                "brain.node.dispatch_tools",
+                **{
+                    "caesar.decision_id": decision_id,
+                    "caesar.tool_count": len(response.tool_uses),
+                },
+            ),
+        ):
             results: list[ToolResult] = []
             for use in response.tool_uses:
-                if use.name == "call_service":
-                    results.append(await _handle_call_service(use, decision_id))
-                elif use.name == "recall_memory":
-                    results.append(await _handle_recall_memory(use, decision_id))
-                elif use.name == "semantic_recall":
-                    results.append(await _handle_semantic_recall(use, decision_id))
-                else:
-                    results.append(
-                        ToolResult(
-                            tool_use_id=use.id,
-                            content=f"Unknown tool: {use.name}",
-                            is_error=True,
+                with span("brain.tool", **{"caesar.tool": use.name}):
+                    if use.name == "call_service":
+                        results.append(await _handle_call_service(use, decision_id))
+                    elif use.name == "recall_memory":
+                        results.append(await _handle_recall_memory(use, decision_id))
+                    elif use.name == "semantic_recall":
+                        results.append(await _handle_semantic_recall(use, decision_id))
+                    else:
+                        results.append(
+                            ToolResult(
+                                tool_use_id=use.id,
+                                content=f"Unknown tool: {use.name}",
+                                is_error=True,
+                            )
                         )
-                    )
             user_msg = ChatMessage(role="user", tool_results=results)
             logger.info(
                 "brain.node.dispatch_tools",
