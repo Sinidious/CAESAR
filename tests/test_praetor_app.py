@@ -141,6 +141,31 @@ async def test_unknown_inprocess_worker_raises(nats_url: str, db_url: str, fake_
             pass
 
 
+async def test_lifespan_starts_and_stops_retention_sweeper(
+    db_url: str, engine, fake_gateway, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Retention sweep is part of the lifespan and reports started/stopped."""
+
+    from caesar.memory.retention import RetentionSweeper
+
+    app = create_app(
+        settings=_settings_with_key(db_url), gateway=fake_gateway, engine=engine
+    )
+    sweeper: RetentionSweeper = app.state.sweeper
+
+    task_running_during = False
+    async with app.router.lifespan_context(app):
+        task_running_during = sweeper._task is not None
+    task_running_after = sweeper._task is not None
+
+    assert task_running_during is True
+    assert task_running_after is False
+
+    out = capsys.readouterr().out
+    assert "memory.sweep.started" in out
+    assert "memory.sweep.stopped" in out
+
+
 async def test_no_warning_when_bus_disabled_and_no_workers(
     db_url: str, fake_gateway, capsys: pytest.CaptureFixture[str]
 ) -> None:

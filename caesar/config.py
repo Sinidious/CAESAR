@@ -91,6 +91,17 @@ class BusSettings(BaseModel):
     request_timeout: float = 5.0
 
 
+class MemorySettings(BaseModel):
+    """Episodic-memory retention (ADR-0020).
+
+    The sweep deletes ``audit_log`` rows older than ``retention_days``;
+    it runs at startup and then every ``sweep_interval_seconds``.
+    """
+
+    retention_days: int = 90
+    sweep_interval_seconds: float = 3600.0
+
+
 class LegionSettings(BaseModel):
     """Legion worker configuration (ADR-0009 + ADR-0010).
 
@@ -125,6 +136,7 @@ class CaesarSettings(BaseSettings):
     policy: PolicySettings = Field(default_factory=PolicySettings)
     bus: BusSettings = Field(default_factory=BusSettings)
     legion: LegionSettings = Field(default_factory=LegionSettings)
+    memory: MemorySettings = Field(default_factory=MemorySettings)
 
 
 @lru_cache(maxsize=1)

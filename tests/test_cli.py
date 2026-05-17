@@ -63,3 +63,44 @@ def test_praetor_migrate_invokes_upgrade(
     reset_settings_cache()
     assert result.exit_code == 0, result.stdout
     up_mock.assert_called_once_with(db_url)
+
+
+def test_memory_sweep_requires_exactly_one_mode(runner: CliRunner):
+    result = runner.invoke(app, ["memory", "sweep"])
+    assert result.exit_code != 0
+    assert "--dry-run" in result.stdout or "--dry-run" in result.output
+
+
+def test_memory_sweep_rejects_both_dry_run_and_apply(runner: CliRunner):
+    result = runner.invoke(app, ["memory", "sweep", "--dry-run", "--apply"])
+    assert result.exit_code != 0
+
+
+def test_memory_sweep_dry_run(runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path):
+    from caesar.config import reset_settings_cache
+    from caesar.db.migrate import upgrade_to_head
+
+    db_url = f"sqlite+aiosqlite:///{tmp_path / 'cli.sqlite3'}"
+    upgrade_to_head(db_url)
+    monkeypatch.setenv("CAESAR_DB__URL", db_url)
+    reset_settings_cache()
+
+    result = runner.invoke(app, ["memory", "sweep", "--dry-run"])
+    reset_settings_cache()
+    assert result.exit_code == 0, result.stdout
+    assert "would delete" in result.stdout
+
+
+def test_memory_sweep_apply(runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path):
+    from caesar.config import reset_settings_cache
+    from caesar.db.migrate import upgrade_to_head
+
+    db_url = f"sqlite+aiosqlite:///{tmp_path / 'cli2.sqlite3'}"
+    upgrade_to_head(db_url)
+    monkeypatch.setenv("CAESAR_DB__URL", db_url)
+    reset_settings_cache()
+
+    result = runner.invoke(app, ["memory", "sweep", "--apply", "--days", "1"])
+    reset_settings_cache()
+    assert result.exit_code == 0, result.stdout
+    assert "deleted 0" in result.stdout
