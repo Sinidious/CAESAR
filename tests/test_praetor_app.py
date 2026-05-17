@@ -184,7 +184,7 @@ async def test_inprocess_workers_warning_when_bus_disabled(
 
 
 async def test_lifespan_starts_inprocess_memory_recall_worker(
-    nats_url: str, db_url: str, fake_gateway
+    nats_url: str, db_url: str, engine, fake_gateway
 ) -> None:
     """End-to-end: bus enabled + memory_recall in inprocess_workers → worker
     registers and is dispatchable through the registry."""
@@ -203,7 +203,8 @@ async def test_lifespan_starts_inprocess_memory_recall_worker(
         bus=BusSettings(enabled=True, url=nats_url),
         legion=LegionSettings(inprocess_workers=["memory_recall"]),
     )
-    app = create_app(settings=settings, gateway=fake_gateway)
+    # Use the migrated engine fixture so audit_log exists.
+    app = create_app(settings=settings, engine=engine, gateway=fake_gateway)
 
     async with app.router.lifespan_context(app):
         bus = app.state.bus
@@ -214,7 +215,7 @@ async def test_lifespan_starts_inprocess_memory_recall_worker(
                 break
             await asyncio.sleep(0.02)
         result = await registry.dispatch(CAPABILITY, {"limit": 5})
-        assert result.success is True
+        assert result.success is True, result.error
         assert (result.result or {})["count"] >= 0
 
 
