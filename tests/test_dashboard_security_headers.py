@@ -17,7 +17,7 @@ from caesar.config import (
     LogSettings,
 )
 from caesar.praetor.app import create_app
-from caesar.praetor.dashboard.auth import make_session_cookie
+from caesar.praetor.dashboard.auth import derive_signing_key, make_session_cookie
 
 DASHBOARD_TOKEN = "the-token"
 
@@ -59,7 +59,11 @@ async def test_dashboard_login_has_security_headers(client: AsyncClient) -> None
 
 
 async def test_dashboard_home_has_security_headers(client: AsyncClient) -> None:
-    client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    settings = DashboardSettings(token=SecretStr(DASHBOARD_TOKEN))
+    client.cookies.set(
+        "caesar_dashboard",
+        make_session_cookie(derive_signing_key(settings)),
+    )
     r = await client.get("/dashboard")
     assert r.status_code == 200
     assert "Content-Security-Policy" in r.headers

@@ -17,12 +17,24 @@ from caesar.config import (
 from caesar.db.audit import AuditLogger
 from caesar.praetor.app import create_app
 from caesar.praetor.dashboard.auth import (
+    derive_signing_key,
     make_session_cookie,
     token_matches,
     verify_session_cookie,
 )
 
 DASHBOARD_TOKEN = "shared-token-please-let-me-in"
+
+
+def _signed_cookie(token: str = DASHBOARD_TOKEN) -> str:
+    """Build a valid session cookie using the configured derivation.
+
+    Mirrors what ``post_login`` does so tests don't have to know
+    whether the signing key is derived or operator-supplied.
+    """
+
+    settings = DashboardSettings(token=SecretStr(token))
+    return make_session_cookie(derive_signing_key(settings))
 
 
 def _settings(db_url: str, *, token: str | None = DASHBOARD_TOKEN) -> CaesarSettings:
@@ -58,10 +70,14 @@ async def dashboard_client(dashboard_app) -> AsyncIterator[AsyncClient]:
 
 
 def test_cookie_round_trip() -> None:
-    cookie = make_session_cookie(DASHBOARD_TOKEN)
-    assert verify_session_cookie(DASHBOARD_TOKEN, cookie)
-    assert not verify_session_cookie("different-token", cookie)
-    assert not verify_session_cookie(DASHBOARD_TOKEN, "garbage")
+    """``make_session_cookie`` / ``verify_session_cookie`` accept a raw
+    signing key and operate symmetrically. The signing key here is
+    a constant; integration tests cover the derived-key path."""
+
+    cookie = make_session_cookie("signing-key-1")
+    assert verify_session_cookie("signing-key-1", cookie)
+    assert not verify_session_cookie("signing-key-2", cookie)
+    assert not verify_session_cookie("signing-key-1", "garbage")
 
 
 def test_token_matches() -> None:
@@ -120,7 +136,7 @@ async def test_home_requires_auth(dashboard_client: AsyncClient) -> None:
 async def test_home_with_session_cookie_returns_html(
     dashboard_client: AsyncClient,
 ) -> None:
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.get("/dashboard")
     assert r.status_code == 200
     assert "CAESAR" in r.text
@@ -134,7 +150,7 @@ async def test_audit_fragment_renders_rows(
     audit = AuditLogger(engine)
     await audit.record("chat.completed", {"reply": "hello world"})
 
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.get("/dashboard/audit")
     assert r.status_code == 200
     assert "chat.completed" in r.text
@@ -143,14 +159,14 @@ async def test_audit_fragment_renders_rows(
 async def test_audit_fragment_empty_state(
     dashboard_client: AsyncClient,
 ) -> None:
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.get("/dashboard/audit")
     assert r.status_code == 200
     assert "No audit events" in r.text
 
 
 async def test_logout_clears_cookie(dashboard_client: AsyncClient) -> None:
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.post("/dashboard/logout", follow_redirects=False)
     assert r.status_code == 303
     # Cookie cleared via Set-Cookie with Max-Age=0.
@@ -172,7 +188,7 @@ async def test_intents_requires_auth(dashboard_client: AsyncClient) -> None:
 
 
 async def test_intents_empty_state(dashboard_client: AsyncClient) -> None:
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.get("/dashboard/intents")
     assert r.status_code == 200
     assert "No intents yet" in r.text
@@ -194,7 +210,7 @@ async def test_intents_renders_grouped_events(
         "service.called",
         {"decision_id": "d-int", "domain": "light", "service": "turn_on"},
     )
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.get("/dashboard/intents")
     assert r.status_code == 200
     assert "turn it on" in r.text
@@ -209,7 +225,7 @@ async def test_agents_requires_auth(dashboard_client: AsyncClient) -> None:
 async def test_agents_empty_when_bus_disabled(
     dashboard_client: AsyncClient,
 ) -> None:
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.get("/dashboard/agents")
     assert r.status_code == 200
     assert "Bus disabled" in r.text
@@ -230,7 +246,7 @@ async def test_agents_shows_dispatch_history(
             "error": None,
         },
     )
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.get("/dashboard/agents")
     assert r.status_code == 200
     assert "memory.recall" in r.text
@@ -238,7 +254,7 @@ async def test_agents_shows_dispatch_history(
 
 
 async def test_home_nav_links_present(dashboard_client: AsyncClient) -> None:
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.get("/dashboard")
     assert r.status_code == 200
     assert "/dashboard/intents" in r.text
@@ -255,7 +271,7 @@ async def test_settings_requires_auth(dashboard_client: AsyncClient) -> None:
 
 
 async def test_settings_get_shows_env_default(dashboard_client: AsyncClient) -> None:
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.get("/dashboard/settings")
     assert r.status_code == 200
     assert "Showing the env default" in r.text
@@ -265,7 +281,7 @@ async def test_settings_get_shows_env_default(dashboard_client: AsyncClient) -> 
 async def test_settings_post_saves_and_takes_effect(
     dashboard_client: AsyncClient, dashboard_app
 ) -> None:
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     r = await dashboard_client.post(
         "/dashboard/settings",
         data={"system_prompt": "You are CAESAR. Concise to a fault."},
@@ -282,7 +298,7 @@ async def test_settings_post_writes_audit_row(dashboard_client: AsyncClient, eng
 
     from caesar.db.schema import audit_log
 
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     await dashboard_client.post(
         "/dashboard/settings",
         data={"system_prompt": "New voice."},
@@ -297,7 +313,7 @@ async def test_settings_post_empty_does_not_save(
 ) -> None:
     """Empty (or whitespace-only) submissions don't overwrite."""
 
-    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    dashboard_client.cookies.set("caesar_dashboard", _signed_cookie())
     await dashboard_client.post(
         "/dashboard/settings",
         data={"system_prompt": "   "},

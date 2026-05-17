@@ -26,6 +26,7 @@ from caesar.legion.registry import WorkerRegistry
 from caesar.log import get_logger
 from caesar.praetor.audit_bus import AuditEventBus
 from caesar.praetor.dashboard.auth import (
+    derive_signing_key,
     make_session_cookie,
     require_session,
     token_matches,
@@ -125,7 +126,7 @@ def build_router() -> APIRouter:
                 status_code=status.HTTP_401_UNAUTHORIZED,
             )
         assert settings.token is not None
-        cookie = make_session_cookie(settings.token.get_secret_value())
+        cookie = make_session_cookie(derive_signing_key(settings))
         response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
         response.set_cookie(
             settings.cookie_name,
