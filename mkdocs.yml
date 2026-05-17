@@ -74,6 +74,7 @@ nav:
   - Operations: OPERATIONS.md
   - Configuration: CONFIGURATION.md
   - Security model: SECURITY-MODEL.md
+  - Security review: SECURITY-REVIEW.md
   - Glossary: GLOSSARY.md
   - ADRs:
       - Index: adr/README.md
@@ -101,6 +102,7 @@ nav:
       - "0022 — Backup and restore": adr/0022-backup-restore.md
       - "0023 — OpenTelemetry tracing": adr/0023-opentelemetry-tracing.md
       - "0024 — Documentation site": adr/0024-docs-site-mkdocs.md
+      - "0025 — Security review process": adr/0025-security-review.md
 
 validation:
   omitted_files: warn

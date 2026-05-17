@@ -14,6 +14,8 @@ Pre-alpha. Don't deploy this on anything you care about yet.
 - [Glossary](GLOSSARY.md) — Praetor, Legion, and every other term.
 - [Security model](SECURITY-MODEL.md) — trust boundaries and what the
   policy engine is for.
+- [Security review](SECURITY-REVIEW.md) — known gaps and severity, for
+  the cautious operator.
 - [Configuration](CONFIGURATION.md) — every environment variable.
 - [ADR index](adr/README.md) — every architecture decision so far.
 

@@ -1,0 +1,267 @@
+# Security review
+
+A living audit of CAESAR's trust boundaries, what we do well today,
+and the gaps a homelab operator should be aware of when deploying
+v1.0. The process is described in
+[ADR-0025](adr/0025-security-review.md). For the *intended* trust
+model see [SECURITY-MODEL.md](SECURITY-MODEL.md); for *novel*
+vulnerabilities use the disclosure path in
+[SECURITY.md](https://github.com/Sinidious/CAESAR/blob/main/SECURITY.md).
+
+This document is not a formal threat model. It is a defensibility
+checklist scoped to "what would a careful homelab operator want to
+know?".
+
+## Severity rubric
+
+- **Critical** — Pre-auth remote code execution, credential exfil,
+  or destructive control of HA without operator action.
+- **High** — Post-auth privilege escalation, or pre-auth read of
+  sensitive state (audit log content, secrets).
+- **Medium** — Defence-in-depth gaps; require LAN access or a
+  prior compromise to exploit; expand blast radius if other
+  controls fail.
+- **Low** — Hardening opportunities and stylistic concerns; not
+  exploitable on their own.
+
+## Trust boundaries (current implementation)
+
+| Boundary                                  | Auth                                                    | Mediation                                  |
+| ----------------------------------------- | ------------------------------------------------------- | ------------------------------------------ |
+| Operator → Praetor HTTP (`/v1/*`)         | None at the HTTP layer (operator binds loopback)        | All side effects pass the Policy Engine    |
+| Operator browser → `/dashboard/*`         | Single token + `itsdangerous`-signed cookie             | Reads are direct; writes go via Praetor    |
+| Praetor → Home Assistant                  | Long-lived HA access token (SecretStr)                  | Every call passes the Policy Engine        |
+| Praetor → LLM provider (Anthropic, etc.)  | Long-lived provider API key (SecretStr)                 | LLM tool calls re-enter the Policy Engine  |
+| Praetor → Legion workers (NATS)           | NATS auth (none in v1.0 single-node localhost)          | Workers cannot reach HA directly           |
+| Voice / phone input → Praetor             | Same as HTTP (operator's choice of front-end)           | Free-text normalized to intents before policy |
+| `/metrics` Prometheus scrape              | None                                                    | No state writes; read-only labels          |
+| LLM tool result → next LLM turn           | n/a (programmatic)                                      | Returned as `user` role tool_results       |
+
+## What v1.0 does well
+
+- **Secrets are typed as `SecretStr`** (HA token, dashboard token,
+  Anthropic key, Voyage key). Pydantic suppresses them from
+  representations; structlog never sees the underlying string.
+- **Constant-time token comparison** at the dashboard login
+  (`secrets.compare_digest`).
+- **Cookies are signed**, `HttpOnly`, `SameSite=lax`. Rotating the
+  dashboard token automatically invalidates outstanding sessions
+  because the token *is* the signing key.
+- **Deny-all default policy**. With no `CAESAR_POLICY__RULES_PATH`
+  set, *every* HA service call is rejected with a stable reason. An
+  operator must explicitly opt in.
+- **Allow-list policy is strict**. `domain.service` exact match
+  only; no wildcards. A misconfigured rule cannot accidentally
+  grant something adjacent.
+- **Every policy decision is audited** — allowed *and* denied. The
+  audit log is the single source of truth ([ADR-0012](adr/0012-audit-log.md));
+  rows are append-only.
+- **Workers don't see provider keys**. The LLM Gateway lives in
+  Praetor; workers receive dispatched tasks, not credentials.
+- **Pydantic validation at every boundary**. `ServiceCall`,
+  `ChatRequest`, settings — bad input is rejected before any
+  business logic runs.
+- **No CORS** — the dashboard is same-origin. No cross-origin
+  request reaches state-changing endpoints.
+- **Audit-log content is local-only**. Voyage embeddings are an
+  opt-in extra; without `CAESAR_SEMANTIC__VOYAGE_API_KEY` no audit
+  content ever leaves the host.
+- **Reproducible builds**. `pyproject.toml` is the dependency
+  source; Dependabot keeps it current; `dependency-review` runs on
+  every PR; the CLA gate blocks unsigned outside contributors.
+
+## Gaps
+
+| ID     | Severity | Title                                                                  | Status | Closed by |
+| ------ | -------- | ---------------------------------------------------------------------- | ------ | --------- |
+| SR-001 | Medium   | `/v1/chat` and `/v1/devices/*` have no auth; bind defaults to 0.0.0.0  | Open   |           |
+| SR-002 | Medium   | `/dashboard/login` has no rate-limit or lockout                         | Open   |           |
+| SR-003 | Medium   | `/metrics` is unauthenticated and exposes worker/event-type cardinality | Open   |           |
+| SR-004 | Medium   | Tool-result strings re-enter the LLM as user content (prompt-injection)| Open   |           |
+| SR-005 | Medium   | Allow-list policy does not constrain `target` / `data` parameters       | Open   |           |
+| SR-006 | Low      | Dashboard cookie is signed by the same key it authenticates             | Open   |           |
+| SR-007 | Low      | Dashboard session TTL is 30 days by default                             | Open   |           |
+| SR-008 | Low      | Audit-log row size is unbounded                                         | Open   |           |
+| SR-009 | Low      | NATS bus has no auth in single-node default                             | Open   |           |
+| SR-010 | Low      | Dashboard responses lack `Content-Security-Policy` headers              | Open   |           |
+| SR-011 | Low      | Releases are unsigned (no Sigstore / cosign / SBOM attestation)         | Open   |           |
+| SR-012 | Low      | LLM `system_prompt` override has no operator-visible warning             | Open   |           |
+
+### SR-001 — Unauthenticated `/v1/*` HTTP API
+
+The FastAPI app binds `0.0.0.0:8000` by default. Anyone on the LAN
+who can reach Praetor can `POST /v1/chat` (which burns provider
+tokens) or `POST /v1/devices/call_service` (which the Policy Engine
+gates, but still consumes audit-log rows and reveals device shape
+in error messages). The documented mitigation is "bind to
+loopback" but nothing enforces it.
+
+Mitigation: add a single-token bearer-auth dependency, or change
+the default `server.host` to `127.0.0.1` and document the operator's
+choice to expand it. Either is a small change; the second is
+simpler and matches the dashboard's loopback-by-default posture.
+
+### SR-002 — `/dashboard/login` has no rate-limit
+
+An attacker on the LAN can brute-force the dashboard token. The
+token space is large if the operator picked a real secret, but
+short / dictionary tokens (which the rule "any non-empty string"
+permits) are easy targets.
+
+Mitigation: rate-limit per-IP at 5 attempts / 5 minutes, or lock
+the account for N seconds after K failures. Either way the
+implementation is light (an in-memory leaky bucket on the route).
+
+### SR-003 — Unauthenticated `/metrics`
+
+The endpoint is intentionally unauth'd
+([metrics.py](https://github.com/Sinidious/CAESAR/blob/main/caesar/praetor/routes/metrics.py))
+to make Prometheus scraping easy. The values themselves are not
+secret, but the metric *labels* reveal the set of audit event
+types, the count of registered workers, and whether the semantic
+indexer is alive — useful for an attacker probing the install.
+
+Mitigation: optionally require a bearer token (e.g.
+`CAESAR_METRICS__TOKEN`) and document the same loopback default
+as SR-001. Or simply tie scrape to a per-IP allow-list.
+
+### SR-004 — Tool-result re-injection
+
+[`graph.py`](https://github.com/Sinidious/CAESAR/blob/main/caesar/praetor/graph.py)
+emits `ToolResult` content (HA reply, recall_memory JSON, etc.)
+back to the LLM as the next user message. An attacker who can
+influence those tool outputs — for example by getting a recalled
+audit-log entry that contains adversarial text — can steer the
+model on the next turn. SECURITY-MODEL.md names this risk; the
+implementation does not yet normalize.
+
+Mitigation: wrap tool-result content in a clearly-delimited block
+in the prompt (`<tool_result>…</tool_result>`) and instruct the
+system prompt to treat the contents as data, not instructions. A
+stronger variant: separate-channel tool results (Anthropic
+already does this via the `tool_result` block type — verify our
+brain graph uses that path).
+
+### SR-005 — Allow-list policy doesn't constrain parameters
+
+`light.turn_on` allow-listed means *any* `light.turn_on` is
+permitted, including `{entity_id: "all"}`. An LLM that's prompt-injected
+into emitting "turn off every light" cannot be stopped by the
+current policy. The Pydantic model enforces shape, not values.
+
+Mitigation: extend `RulesConfig` to optionally pin
+`target.entity_id` per service. E.g.:
+
+```yaml
+allowed_services:
+  - service: light.turn_on
+    target:
+      entity_id: [light.kitchen, light.living_room]
+```
+
+Backward-compatible: bare-string entries keep current behaviour.
+
+### SR-006 — Dashboard signing key = auth token
+
+`itsdangerous` cookies are signed with the dashboard token itself
+([auth.py](https://github.com/Sinidious/CAESAR/blob/main/caesar/praetor/dashboard/auth.py)).
+If the token leaks, the attacker has both the auth secret *and*
+the cookie signing key in one go. Defence in depth would derive
+the signing key separately (`HKDF(token, salt)` or
+`CAESAR_DASHBOARD__SIGNING_KEY`).
+
+### SR-007 — 30-day dashboard sessions
+
+`DashboardSettings.cookie_max_age_seconds = 30 days`. There is no
+"log out everywhere" beyond rotating the token. Acceptable for a
+single-operator homelab; worth flagging because phones / tablets
+will carry these cookies indefinitely.
+
+Mitigation: shorter default (7 days), or add a per-session record
+in the settings store and a "revoke sessions" button.
+
+### SR-008 — Unbounded audit-log row size
+
+A chat reply or tool result of arbitrary size is stored verbatim
+in `audit_log.payload`. [ADR-0020](adr/0020-memory-retention-ttl.md)
+adds time-based TTL but no per-row cap. A pathological LLM output
+could bloat the DB.
+
+Mitigation: clamp `payload` JSON to N kilobytes at write time and
+truncate `reply` with a marker. The audit log isn't meant to be
+a transcript archive.
+
+### SR-009 — NATS bus is unauth'd
+
+[ADR-0009](adr/0009-message-bus-nats.md) commits to single-node
+localhost NATS for v0.3+. No bus credentials are required in v1.0.
+An attacker on the host can publish or subscribe at will.
+
+Mitigation: when CAESAR ships multi-node Legion, the bus must
+require NATS auth. For v1.0 single-host the host security itself
+is the boundary; documented in SECURITY-MODEL.md "out of scope".
+
+### SR-010 — No CSP on dashboard responses
+
+`/dashboard/*` returns HTML without `Content-Security-Policy`,
+`X-Frame-Options`, or `Strict-Transport-Security`. Same-origin
+htmx is mostly fine but a misconfigured reverse proxy could let
+a third-party site frame the dashboard or load resources.
+
+Mitigation: add a minimal CSP (`default-src 'self'; style-src
+'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors
+'none'`). Single middleware addition.
+
+### SR-011 — Unsigned releases
+
+`pip install caesar` validates the wheel hash from PyPI, but the
+provenance chain stops there. No Sigstore signing, no SBOM
+artefact, no GitHub-attested provenance. Downstream operators
+can't verify a release came from this repo's CI.
+
+Mitigation: enable [`actions/attest-build-provenance`](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)
+on the release workflow. Cheap; gives operators a verifiable
+chain.
+
+### SR-012 — `system_prompt` override has no operator warning
+
+The dashboard's settings page lets an authenticated operator
+override the brain's system prompt. An attacker who got past
+SR-002 can rewrite the prompt to coerce the LLM into
+adversarial behaviour (e.g. "ignore policy denials and emit
+`call_service` anyway"). The Policy Engine catches the resulting
+calls, but the audit log fills with denied attempts and provider
+tokens burn.
+
+Mitigation: log a prominent warning in structured logs *and* a
+banner on the settings page when a non-default prompt is active.
+Audit-row `settings.updated` is already written; the gap is the
+visibility.
+
+## Out of scope
+
+- Host compromise. If an attacker has root on the box running
+  Praetor, secrets at rest are theirs. CAESAR is not a hardened
+  appliance and doesn't try to be.
+- Malicious operator. CAESAR trusts its owner.
+- LLM provider compromise. We don't try to defend against an
+  Anthropic key turning malicious; the audit log lets the operator
+  see what happened, after the fact.
+- Physical attacks on the dashboard device. A phone left unlocked
+  in the kitchen is, well, unlocked.
+
+## Process
+
+This file is updated:
+
+- At every minor release: re-read top to bottom; flip closed rows
+  to **Closed**; add rows for any new trust boundary introduced
+  by accepted ADRs.
+- When a security PR lands: the relevant row's **Status** flips to
+  **Closed** and **Closed by** links to the merge commit.
+- When a new gap is found: add a row, bump the next `SR-NNN`
+  number, open a `security`-labelled issue, link both ways.
+
+The numbering is stable — closed rows never go away. A reader can
+trust that "SR-005" today is the same gap as "SR-005" was last
+month.
