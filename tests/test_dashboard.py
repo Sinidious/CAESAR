@@ -243,6 +243,67 @@ async def test_home_nav_links_present(dashboard_client: AsyncClient) -> None:
     assert r.status_code == 200
     assert "/dashboard/intents" in r.text
     assert "/dashboard/agents" in r.text
+    assert "/dashboard/settings" in r.text
+
+
+# --- settings page ----------------------------------------------------------
+
+
+async def test_settings_requires_auth(dashboard_client: AsyncClient) -> None:
+    r = await dashboard_client.get("/dashboard/settings")
+    assert r.status_code == 401
+
+
+async def test_settings_get_shows_env_default(dashboard_client: AsyncClient) -> None:
+    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    r = await dashboard_client.get("/dashboard/settings")
+    assert r.status_code == 200
+    assert "Showing the env default" in r.text
+    assert "You are CAESAR" in r.text  # default prompt
+
+
+async def test_settings_post_saves_and_takes_effect(
+    dashboard_client: AsyncClient, dashboard_app
+) -> None:
+    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    r = await dashboard_client.post(
+        "/dashboard/settings",
+        data={"system_prompt": "You are CAESAR. Concise to a fault."},
+    )
+    assert r.status_code == 200
+    assert "Saved" in r.text
+    # Persisted in the store.
+    stored = await dashboard_app.state.settings_store.get_system_prompt()
+    assert stored == "You are CAESAR. Concise to a fault."
+
+
+async def test_settings_post_writes_audit_row(dashboard_client: AsyncClient, engine) -> None:
+    from sqlalchemy import select
+
+    from caesar.db.schema import audit_log
+
+    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    await dashboard_client.post(
+        "/dashboard/settings",
+        data={"system_prompt": "New voice."},
+    )
+    async with engine.connect() as conn:
+        rows = (await conn.execute(select(audit_log))).all()
+    assert any(r.event_type == "settings.updated" for r in rows)
+
+
+async def test_settings_post_empty_does_not_save(
+    dashboard_client: AsyncClient, dashboard_app
+) -> None:
+    """Empty (or whitespace-only) submissions don't overwrite."""
+
+    dashboard_client.cookies.set("caesar_dashboard", make_session_cookie(DASHBOARD_TOKEN))
+    await dashboard_client.post(
+        "/dashboard/settings",
+        data={"system_prompt": "   "},
+    )
+    stored = await dashboard_app.state.settings_store.get_system_prompt()
+    assert stored is None
 
 
 # End-to-end SSE streaming through httpx ASGITransport doesn't work — the

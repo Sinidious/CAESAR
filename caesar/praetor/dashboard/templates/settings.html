@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}CAESAR — settings{% endblock %}
+{% block content %}
+  <section class="settings">
+    <h2>Brain personality</h2>
+    {% if saved %}
+      <p class="hint saved">Saved. Next chat picks up the new prompt.</p>
+    {% endif %}
+    <form method="post" action="/dashboard/settings" class="settings-form">
+      <label for="system_prompt">System prompt</label>
+      <textarea
+        id="system_prompt"
+        name="system_prompt"
+        rows="10"
+        spellcheck="false"
+      >{{ system_prompt }}</textarea>
+      <div class="row">
+        <button type="submit">Save</button>
+        {% if is_overridden %}
+          <span class="hint">Overrides <code>CAESAR_LLM__SYSTEM_PROMPT</code>.</span>
+        {% else %}
+          <span class="hint">Showing the env default.</span>
+        {% endif %}
+      </div>
+    </form>
+    <details class="default">
+      <summary>Env default (read-only)</summary>
+      <pre>{{ default_prompt }}</pre>
+    </details>
+  </section>
+{% endblock %}

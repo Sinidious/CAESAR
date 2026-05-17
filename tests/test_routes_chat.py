@@ -47,3 +47,19 @@ async def test_chat_uses_request_model_when_supplied(client: AsyncClient):
     assert r.status_code == 200
     # FakeGateway echoes the requested model in its response.
     assert r.json()["model"] == "claude-other"
+
+
+async def test_chat_uses_overridden_system_prompt(client, fake_gateway, engine):
+    """When the settings_store has a system prompt, chat uses it."""
+
+    from caesar.db.settings_store import SettingsStore
+
+    store = SettingsStore(engine)
+    await store.set_system_prompt("Custom voice from the dashboard.")
+    r = await client.post(
+        "/v1/chat",
+        json={"messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert r.status_code == 200
+    # The first gateway call should see the overridden prompt.
+    assert fake_gateway.calls[0]["system"] == "Custom voice from the dashboard."

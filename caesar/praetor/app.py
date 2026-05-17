@@ -18,6 +18,7 @@ from caesar.bus.client import Bus
 from caesar.config import CaesarSettings, get_settings
 from caesar.db.audit import AuditLogger
 from caesar.db.engine import create_engine
+from caesar.db.settings_store import SettingsStore
 from caesar.ha.client import HAClient
 from caesar.legion.memory_recall import MemoryRecallWorker
 from caesar.legion.registry import WorkerRegistry
@@ -149,6 +150,7 @@ def create_app(
     bus = bus if bus is not None else _default_bus(settings)
     audit_bus = AuditEventBus()
     audit = AuditLogger(engine, bus=audit_bus)
+    settings_store = SettingsStore(engine)
     registry = WorkerRegistry(bus, audit=audit) if bus is not None else None
     sweeper = RetentionSweeper(
         engine,
@@ -234,6 +236,7 @@ def create_app(
     app.state.embedder = embedder
     app.state.semantic_indexer = semantic_indexer
     app.state.audit_bus = audit_bus
+    app.state.settings_store = settings_store
 
     app.middleware("http")(request_id_middleware)
     app.include_router(health.router)

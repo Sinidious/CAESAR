@@ -18,8 +18,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from caesar.config import DashboardSettings
+from caesar.config import CaesarSettings, DashboardSettings
+from caesar.db.audit import AuditLogger
 from caesar.db.schema import audit_log
+from caesar.db.settings_store import SettingsStore
 from caesar.legion.registry import WorkerRegistry
 from caesar.praetor.audit_bus import AuditEventBus
 from caesar.praetor.dashboard.auth import (
@@ -50,10 +52,25 @@ def _registry_from(request: Request) -> WorkerRegistry | None:
     return cast("WorkerRegistry | None", request.app.state.registry)
 
 
+def _settings_store_from(request: Request) -> SettingsStore:
+    return cast(SettingsStore, request.app.state.settings_store)
+
+
+def _audit_from(request: Request) -> AuditLogger:
+    return cast(AuditLogger, request.app.state.audit)
+
+
+def _caesar_settings_from(request: Request) -> CaesarSettings:
+    return cast(CaesarSettings, request.app.state.settings)
+
+
 SettingsDep = Annotated[DashboardSettings, Depends(_settings_from)]
 EngineDep = Annotated[AsyncEngine, Depends(_engine_from)]
 BusDep = Annotated[AuditEventBus, Depends(_bus_from)]
 RegistryDep = Annotated["WorkerRegistry | None", Depends(_registry_from)]
+SettingsStoreDep = Annotated[SettingsStore, Depends(_settings_store_from)]
+AuditDep = Annotated[AuditLogger, Depends(_audit_from)]
+CaesarSettingsDep = Annotated[CaesarSettings, Depends(_caesar_settings_from)]
 SessionDep = Annotated[None, Depends(require_session)]
 
 
@@ -152,6 +169,54 @@ def build_router() -> APIRouter:
                 "agents": agent_rows,
                 "dispatches": dispatches,
                 "bus_enabled": registry is not None,
+            },
+        )
+
+    @router.get("/settings", response_class=HTMLResponse)
+    async def get_settings_page(
+        request: Request,
+        _: SessionDep,
+        store: SettingsStoreDep,
+        caesar_settings: CaesarSettingsDep,
+    ) -> HTMLResponse:
+        current = await store.get_system_prompt()
+        return templates.TemplateResponse(
+            request,
+            "settings.html",
+            {
+                "system_prompt": current
+                if current is not None
+                else caesar_settings.llm.system_prompt,
+                "is_overridden": current is not None,
+                "default_prompt": caesar_settings.llm.system_prompt,
+                "saved": False,
+            },
+        )
+
+    @router.post("/settings", response_model=None)
+    async def post_settings(
+        request: Request,
+        _: SessionDep,
+        store: SettingsStoreDep,
+        audit: AuditDep,
+        caesar_settings: CaesarSettingsDep,
+        system_prompt: Annotated[str, Form()],
+    ) -> HTMLResponse:
+        prompt = system_prompt.strip()
+        if prompt:
+            await store.set_system_prompt(prompt)
+            await audit.record(
+                "settings.updated",
+                {"key": "llm.system_prompt", "length": len(prompt)},
+            )
+        return templates.TemplateResponse(
+            request,
+            "settings.html",
+            {
+                "system_prompt": prompt or caesar_settings.llm.system_prompt,
+                "is_overridden": bool(prompt),
+                "default_prompt": caesar_settings.llm.system_prompt,
+                "saved": True,
             },
         )
 
