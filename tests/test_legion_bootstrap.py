@@ -33,9 +33,11 @@ def test_generate_worker_identity_is_random_each_call() -> None:
     assert a.public_key != b.public_key
 
 
-def test_nats_user_name_includes_caesar_worker_prefix() -> None:
+def test_users_block_comment_includes_worker_label(  # NATS rejects user: + nkey: so the label lives in a comment
+) -> None:
     identity = generate_worker_identity(name="kitchen-pi")
-    assert identity.nats_user_name == "caesar-worker-kitchen-pi"
+    block = identity.nats_users_block()
+    assert "# caesar-worker-kitchen-pi" in block
 
 
 def test_reply_subject_glob_scopes_to_name() -> None:
@@ -43,10 +45,13 @@ def test_reply_subject_glob_scopes_to_name() -> None:
     assert identity.reply_subject_glob == "caesar.reply.kitchen-pi.>"
 
 
-def test_nats_users_block_contains_user_and_public_key() -> None:
+def test_nats_users_block_contains_nkey_and_label() -> None:
     identity = generate_worker_identity(name="kitchen-pi")
     block = identity.nats_users_block()
-    assert 'user: "caesar-worker-kitchen-pi"' in block
+    # NATS rejects user: alongside nkey:, so the worker label flows
+    # into a comment rather than a field.
+    assert "# caesar-worker-kitchen-pi" in block
+    assert 'user:' not in block
     assert f'nkey: "{identity.public_key}"' in block
     # Subject permissions are scoped to this worker.
     assert "caesar.reply.kitchen-pi.>" in block
@@ -73,7 +78,8 @@ def test_worker_env_vars_references_seed_path_by_name() -> None:
     env = identity.worker_env_vars()
     assert "CAESAR_BUS__ENABLED=true" in env
     assert "CAESAR_BUS__AUTH__ENABLED=true" in env
-    assert "CAESAR_BUS__AUTH__USER=caesar-worker-kitchen-pi" in env
+    # NATS rejects user: alongside nkey:, so we don't ship USER env.
+    assert "CAESAR_BUS__AUTH__USER=" not in env
     assert "/etc/caesar/kitchen-pi.nkey" in env
 
 
@@ -100,6 +106,7 @@ def test_cli_new_worker_prints_full_operator_block() -> None:
     result = runner.invoke(app, ["legion", "new-worker", "--name", "office-pc"])
     assert result.exit_code == 0, result.stdout
     assert "office-pc" in result.stdout
+    # The "caesar-worker-<name>" label shows up in the conf-block comment.
     assert "caesar-worker-office-pc" in result.stdout
     assert "caesar.reply.office-pc.>" in result.stdout
     # Seed (USER NKEY) appears in the output.
@@ -133,4 +140,4 @@ def test_worker_identity_class_round_trips_from_explicit_values() -> None:
         seed="SUAIWR3EHVNBI6PSWW4MN7TWQSD7QHEA2TYJK7CWCRRVWCTK5NUFBEZ7CA",
         public_key="UB3JKIFCJN57TDMYEWRTAENS4TCDW3AAFUN7CFPIAK7CH6ZEC5BRUS6U",
     )
-    assert explicit.nats_user_name == "caesar-worker-explicit"
+    assert explicit.reply_subject_glob == "caesar.reply.explicit.>"

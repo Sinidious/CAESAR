@@ -72,7 +72,6 @@ def spawn_nats_with_nkey_auth(
     binary: str,
     *,
     praetor_public_key: str,
-    worker_user_name: str,
     worker_public_key: str,
     worker_reply_subject: str,
 ) -> Iterator[str]:
@@ -82,6 +81,11 @@ def spawn_nats_with_nkey_auth(
     ``caesar.>``; the worker can only publish to
     ``caesar.registry.{hello,heartbeat}`` and ``worker_reply_subject``,
     and subscribe to ``caesar.dispatch.>`` and its own reply subject.
+
+    Note: NATS rejects ``user:`` alongside ``nkey:`` — pure NKEY
+    identities are matched by the public key alone. The client also
+    doesn't pass a username when authenticating via NKEY; the
+    challenge-response on the seed identifies the connection.
     """
 
     port = _free_port()
@@ -92,13 +96,13 @@ def spawn_nats_with_nkey_auth(
 
         authorization {{
           users: [
-            {{ user: "caesar-praetor", nkey: "{praetor_public_key}",
+            {{ nkey: "{praetor_public_key}",
               permissions: {{
                 publish:   {{ allow: ["caesar.>"] }},
                 subscribe: {{ allow: ["caesar.>"] }},
               }},
             }},
-            {{ user: "{worker_user_name}", nkey: "{worker_public_key}",
+            {{ nkey: "{worker_public_key}",
               permissions: {{
                 publish: {{
                   allow: [
@@ -125,7 +129,7 @@ def spawn_nats_with_nkey_auth(
 
     # Capture stderr so a malformed config or auth error becomes a
     # readable assertion, not a silent 'port never opened' timeout.
-    stderr_file = tempfile.TemporaryFile()
+    stderr_file = tempfile.TemporaryFile()  # noqa: SIM115 - lifetime owned by this fn's finally
     proc = subprocess.Popen(
         [binary, "-c", str(conf_path)],
         stdout=subprocess.DEVNULL,

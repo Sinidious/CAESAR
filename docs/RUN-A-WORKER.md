@@ -41,11 +41,15 @@ screenshots, or `nats-server.conf` itself.
 ## 2 — Configure `nats-server`
 
 Start from `examples/legion-multihost-nats.conf` in the repo. Replace
-the placeholder public keys with the ones you just minted. The
-shape of each user entry:
+the placeholder public keys with the ones you just minted.
+
+**Important:** NATS rejects `user:` alongside `nkey:` —
+NKEY identities are matched by the public key alone. The
+human-friendly worker label goes in a comment above each entry:
 
 ```hocon
-{ user: "caesar-worker-<name>", nkey: "U…",
+# caesar-worker-<name>
+{ nkey: "U…",
   permissions: {
     publish:   { allow: ["caesar.registry.hello",
                          "caesar.registry.heartbeat",
@@ -59,7 +63,8 @@ shape of each user entry:
 Praetor's permissions are wider — it owns the orchestration layer:
 
 ```hocon
-{ user: "caesar-praetor", nkey: "U…",
+# caesar-praetor
+{ nkey: "U…",
   permissions: {
     publish:   { allow: ["caesar.>"] },
     subscribe: { allow: ["caesar.>"] },
@@ -85,7 +90,6 @@ you configure CAESAR):
 CAESAR_BUS__ENABLED=true
 CAESAR_BUS__URL=nats://<your-nats-host>:4222
 CAESAR_BUS__AUTH__ENABLED=true
-CAESAR_BUS__AUTH__USER=caesar-praetor
 CAESAR_BUS__AUTH__NKEY_SEED_PATH=/etc/caesar/praetor.nkey
 ```
 
@@ -103,7 +107,6 @@ the same on the worker host — save the seed and export:
 CAESAR_BUS__ENABLED=true
 CAESAR_BUS__URL=nats://<your-nats-host>:4222
 CAESAR_BUS__AUTH__ENABLED=true
-CAESAR_BUS__AUTH__USER=caesar-worker-kitchen-pi
 CAESAR_BUS__AUTH__NKEY_SEED_PATH=/etc/caesar/kitchen-pi.nkey
 ```
 
@@ -123,8 +126,9 @@ the new count.
 
 If the worker can't connect, three usual suspects:
 
-1. **Bad user name.** `CAESAR_BUS__AUTH__USER` must match the
-   `user: …` value in `nats-server.conf` exactly.
+1. **Wrong NKEY.** The worker's seed must derive the public key
+   you pasted into `nats-server.conf`. A typo in either rejects
+   the connection at challenge-response time.
 2. **Wrong subject permissions.** Tail the nats-server logs;
    permission errors print `Subscription Forbidden` /
    `Publish Forbidden` with the offending subject.

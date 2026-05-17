@@ -51,7 +51,6 @@ def authed_legion() -> Iterator[_AuthedFixture]:
     gen = spawn_nats_with_nkey_auth(
         binary,
         praetor_public_key=praetor.public_key,
-        worker_user_name=worker.nats_user_name,
         worker_public_key=worker.public_key,
         worker_reply_subject=worker.reply_subject_glob,
     )
@@ -63,8 +62,8 @@ def authed_legion() -> Iterator[_AuthedFixture]:
             next(gen)
 
 
-async def _connect(nats_url: str, *, seed: str, user: str) -> Bus:
-    bus = Bus(nats_url, auth=BusAuth(nkey_seed=seed, user=user))
+async def _connect(nats_url: str, *, seed: str) -> Bus:
+    bus = Bus(nats_url, auth=BusAuth(nkey_seed=seed))
     await bus.connect()
     return bus
 
@@ -73,16 +72,8 @@ async def _connect(nats_url: str, *, seed: str, user: str) -> Bus:
 async def buses(authed_legion: _AuthedFixture) -> AsyncIterator[tuple[Bus, Bus]]:
     """Two connected, authed buses: one Praetor-shaped, one worker-shaped."""
 
-    praetor = await _connect(
-        authed_legion.nats_url,
-        seed=authed_legion.praetor.seed,
-        user="caesar-praetor",
-    )
-    worker = await _connect(
-        authed_legion.nats_url,
-        seed=authed_legion.worker.seed,
-        user=authed_legion.worker.nats_user_name,
-    )
+    praetor = await _connect(authed_legion.nats_url, seed=authed_legion.praetor.seed)
+    worker = await _connect(authed_legion.nats_url, seed=authed_legion.worker.seed)
     try:
         yield praetor, worker
     finally:
@@ -188,7 +179,7 @@ async def test_unknown_nkey_is_rejected_at_connect(
     rogue = generate_worker_identity(name="rogue")
     bus = Bus(
         authed_legion.nats_url,
-        auth=BusAuth(nkey_seed=rogue.seed, user="caesar-worker-rogue"),
+        auth=BusAuth(nkey_seed=rogue.seed),
     )
     # nats-py raises one of several Exception subclasses depending on
     # version (NoServersError, AuthorizationError, ErrAuthorization).
