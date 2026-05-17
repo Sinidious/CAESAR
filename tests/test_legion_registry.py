@@ -93,9 +93,7 @@ async def test_capabilities_view(bus: Bus, registry: WorkerRegistry) -> None:
         await worker.stop()
 
 
-async def test_find_returns_matching_workers(
-    bus: Bus, registry: WorkerRegistry
-) -> None:
+async def test_find_returns_matching_workers(bus: Bus, registry: WorkerRegistry) -> None:
     worker = NoopWorker(bus)
     await worker.start()
     try:
