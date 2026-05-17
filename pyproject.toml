@@ -139,6 +139,9 @@ filterwarnings = [
     # binding-to-sys.stdout-at-config-time is the root cause; silencing
     # the warning is safer than redirecting logging in every test.
     "ignore::pytest.PytestUnraisableExceptionWarning",
+    # Same root cause, different surface: aiosqlite worker threads
+    # sometimes resurface during cleanup with "Event loop is closed".
+    "ignore::pytest.PytestUnhandledThreadExceptionWarning",
 ]
 asyncio_mode = "auto"
 
