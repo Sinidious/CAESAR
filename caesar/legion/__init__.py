@@ -14,6 +14,7 @@ from caesar.legion.protocol import (
     dispatch_subject,
 )
 from caesar.legion.registry import NoWorkerAvailableError, WorkerRegistry
+from caesar.legion.semantic_recall import SemanticRecallWorker
 from caesar.legion.worker import NoopWorker, Worker
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "MemoryRecallWorker",
     "NoWorkerAvailableError",
     "NoopWorker",
+    "SemanticRecallWorker",
     "TaskDispatch",
     "TaskResult",
     "Worker",

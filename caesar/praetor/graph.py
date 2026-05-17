@@ -49,6 +49,7 @@ from caesar.praetor.dispatch import dispatch_service_call
 MAX_ITERATIONS_DEFAULT = 5
 
 MEMORY_RECALL_CAPABILITY = "memory.recall"
+SEMANTIC_RECALL_CAPABILITY = "memory.semantic_recall"
 
 
 class BrainState(TypedDict, total=False):
@@ -103,6 +104,27 @@ RECALL_MEMORY_TOOL = ToolDefinition(
 )
 
 
+RECALL_SEMANTIC_TOOL = ToolDefinition(
+    name="semantic_recall",
+    description=(
+        "Search prior CAESAR conversations and decisions by meaning, "
+        "not time. Use when the user references something fuzzy ("
+        '"that thing we tried with the bedroom thermostat"). Returns '
+        "the top-k most similar past events. Prefer this over "
+        "recall_memory when the recall is about *what* was said, not "
+        "*when*."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "minLength": 1},
+            "limit": {"type": "integer", "minimum": 1},
+        },
+        "required": ["query"],
+    },
+)
+
+
 def build_brain_graph(
     *,
     gateway: LLMGateway,
@@ -121,6 +143,8 @@ def build_brain_graph(
         tools.append(CALL_SERVICE_TOOL)
     if registry is not None and registry.find(MEMORY_RECALL_CAPABILITY):
         tools.append(RECALL_MEMORY_TOOL)
+    if registry is not None and registry.find(SEMANTIC_RECALL_CAPABILITY):
+        tools.append(RECALL_SEMANTIC_TOOL)
 
     async def _handle_call_service(use: ToolUse, decision_id: str) -> ToolResult:
         try:
@@ -154,6 +178,21 @@ def build_brain_graph(
             return ToolResult(
                 tool_use_id=use.id,
                 content=f"recall_memory failed: {result.error}",
+                is_error=True,
+            )
+        return ToolResult(
+            tool_use_id=use.id,
+            content=json.dumps(result.result or {}, default=str),
+            is_error=False,
+        )
+
+    async def _handle_semantic_recall(use: ToolUse) -> ToolResult:
+        assert registry is not None  # invariant: tool only registered when registry set
+        result = await registry.dispatch(SEMANTIC_RECALL_CAPABILITY, use.input)
+        if not result.success:
+            return ToolResult(
+                tool_use_id=use.id,
+                content=f"semantic_recall failed: {result.error}",
                 is_error=True,
             )
         return ToolResult(
@@ -198,6 +237,8 @@ def build_brain_graph(
                     results.append(await _handle_call_service(use, decision_id))
                 elif use.name == "recall_memory":
                     results.append(await _handle_recall_memory(use))
+                elif use.name == "semantic_recall":
+                    results.append(await _handle_semantic_recall(use))
                 else:
                     results.append(
                         ToolResult(

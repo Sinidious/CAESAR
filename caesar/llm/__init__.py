@@ -4,6 +4,7 @@ App code calls the :class:`LLMGateway` protocol; provider modules
 (currently just :mod:`caesar.llm.anthropic`) implement it.
 """
 
+from caesar.llm.embeddings import Embedder, EmbedderError, StubEmbedder, VoyageEmbedder
 from caesar.llm.gateway import (
     ChatMessage,
     ChatResponse,
@@ -16,8 +17,12 @@ from caesar.llm.gateway import (
 __all__ = [
     "ChatMessage",
     "ChatResponse",
+    "Embedder",
+    "EmbedderError",
     "LLMGateway",
+    "StubEmbedder",
     "ToolDefinition",
     "ToolResult",
     "ToolUse",
+    "VoyageEmbedder",
 ]
