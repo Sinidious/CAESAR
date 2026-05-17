@@ -42,6 +42,7 @@ dependencies = [
     "websockets>=13.0",
     "pyyaml>=6.0",
     "nats-py>=2.7.0",
+    "voyageai>=0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -118,7 +119,7 @@ disallow_incomplete_defs = false
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["langgraph.*"]
+module = ["langgraph.*", "voyageai.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

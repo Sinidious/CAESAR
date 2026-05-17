@@ -20,11 +20,14 @@ from caesar.db.engine import create_engine
 from caesar.ha.client import HAClient
 from caesar.legion.memory_recall import MemoryRecallWorker
 from caesar.legion.registry import WorkerRegistry
+from caesar.legion.semantic_recall import SemanticRecallWorker
 from caesar.legion.worker import Worker
 from caesar.llm.anthropic import AnthropicProvider
+from caesar.llm.embeddings import Embedder, StubEmbedder, VoyageEmbedder
 from caesar.llm.gateway import LLMGateway
 from caesar.log import configure_logging, get_logger
 from caesar.memory.retention import RetentionSweeper
+from caesar.memory.semantic import SemanticIndexer
 from caesar.policy.allowlist import AllowlistPolicy
 from caesar.policy.engine import DenyAllPolicy, Policy
 from caesar.policy.yaml_loader import load_rules
@@ -63,12 +66,26 @@ def _default_bus(settings: CaesarSettings) -> Bus | None:
     return Bus(settings.bus.url, connect_timeout=settings.bus.connect_timeout)
 
 
+def _default_embedder(settings: CaesarSettings) -> Embedder:
+    """Return the configured Embedder. Voyage when an API key is set;
+    StubEmbedder otherwise so dev / test runs work without one."""
+
+    if settings.semantic.voyage_api_key is not None:
+        return VoyageEmbedder(
+            api_key=settings.semantic.voyage_api_key.get_secret_value(),
+            model=settings.semantic.model,
+            dimension=settings.semantic.embedding_dim,
+        )
+    return StubEmbedder(dimension=settings.semantic.embedding_dim, model="stub-embedder")
+
+
 def _build_inprocess_worker(
     name: str,
     *,
     bus: Bus,
     engine: AsyncEngine,
     settings: CaesarSettings,
+    embedder: Embedder | None,
 ) -> Worker:
     """Construct one of the in-process workers from its config name."""
 
@@ -78,6 +95,16 @@ def _build_inprocess_worker(
             engine,
             default_limit=settings.legion.recall_default_limit,
             max_limit=settings.legion.recall_max_limit,
+        )
+    if name == "semantic_recall":
+        if embedder is None:
+            raise ValueError("semantic_recall worker requires CAESAR_SEMANTIC__ENABLED=true")
+        return SemanticRecallWorker(
+            bus,
+            engine,
+            embedder,
+            default_limit=settings.semantic.top_k_default,
+            max_limit=settings.semantic.top_k_max,
         )
     raise ValueError(f"unknown in-process worker: {name!r}")
 
@@ -124,6 +151,15 @@ def create_app(
         retention_days=settings.memory.retention_days,
         interval_seconds=settings.memory.sweep_interval_seconds,
     )
+    embedder: Embedder | None = _default_embedder(settings) if settings.semantic.enabled else None
+    semantic_indexer: SemanticIndexer | None = None
+    if embedder is not None:
+        semantic_indexer = SemanticIndexer(
+            engine,
+            embedder,
+            event_types=settings.semantic.indexed_event_types,
+            interval_seconds=settings.semantic.indexer_interval_seconds,
+        )
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -134,7 +170,9 @@ def create_app(
             await registry.start()
         if bus is not None:
             for name in settings.legion.inprocess_workers:
-                worker = _build_inprocess_worker(name, bus=bus, engine=engine, settings=settings)
+                worker = _build_inprocess_worker(
+                    name, bus=bus, engine=engine, settings=settings, embedder=embedder
+                )
                 await worker.start()
                 workers.append(worker)
         elif settings.legion.inprocess_workers:
@@ -144,6 +182,8 @@ def create_app(
                 workers=settings.legion.inprocess_workers,
             )
         sweeper.start_background()
+        if semantic_indexer is not None:
+            semantic_indexer.start_background()
         logger.info(
             "praetor.startup",
             version=__version__,
@@ -158,6 +198,8 @@ def create_app(
         try:
             yield
         finally:
+            if semantic_indexer is not None:
+                await semantic_indexer.stop_background()
             await sweeper.stop_background()
             for worker in reversed(workers):
                 await worker.stop()
@@ -184,6 +226,8 @@ def create_app(
     app.state.bus = bus
     app.state.registry = registry
     app.state.sweeper = sweeper
+    app.state.embedder = embedder
+    app.state.semantic_indexer = semantic_indexer
 
     app.middleware("http")(request_id_middleware)
     app.include_router(health.router)

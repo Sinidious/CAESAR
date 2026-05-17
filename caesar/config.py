@@ -102,6 +102,25 @@ class MemorySettings(BaseModel):
     sweep_interval_seconds: float = 3600.0
 
 
+class SemanticSettings(BaseModel):
+    """Semantic memory configuration (ADR-0010 amendment).
+
+    Disabled by default. When enabled, a background indexer embeds
+    rows from ``audit_log`` matching ``indexed_event_types`` and a
+    ``memory.semantic_recall`` worker can be dispatched to find them
+    by similarity.
+    """
+
+    enabled: bool = False
+    voyage_api_key: SecretStr | None = None
+    model: str = "voyage-3.5"
+    embedding_dim: int = 1024
+    indexer_interval_seconds: float = 60.0
+    indexed_event_types: list[str] = Field(default_factory=lambda: ["chat.completed"])
+    top_k_default: int = 5
+    top_k_max: int = 50
+
+
 class LegionSettings(BaseModel):
     """Legion worker configuration (ADR-0009 + ADR-0010).
 
@@ -137,6 +156,7 @@ class CaesarSettings(BaseSettings):
     bus: BusSettings = Field(default_factory=BusSettings)
     legion: LegionSettings = Field(default_factory=LegionSettings)
     memory: MemorySettings = Field(default_factory=MemorySettings)
+    semantic: SemanticSettings = Field(default_factory=SemanticSettings)
 
 
 @lru_cache(maxsize=1)

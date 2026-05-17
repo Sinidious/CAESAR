@@ -1,7 +1,10 @@
 # 0010 — Hybrid memory: SQLite for episodic, vector store for semantic
 
-- Status: Accepted
-- Date: 2026-05-15
+- Status: Accepted (amended 2026-05-17: v0.4 ships with Python-side
+  cosine over a regular SQLite column; the original `sqlite-vss`
+  default is replaced by `sqlite-vec` as the future-scale target.
+  Embeddings come from Voyage AI by default.)
+- Date: 2026-05-15 (original); 2026-05-17 (amendment)
 - Deciders: @sinidious
 
 ## Context
@@ -27,9 +30,17 @@ CAESAR uses a **hybrid memory** with two backends:
   audit log ([ADR-0012](0012-audit-log.md)). Single file, easy
   backup, fast for the cardinality of a household.
 - **Semantic memory: a vector store** behind a small abstraction.
-  Default backend is `sqlite-vss` (zero ops, single file). Operators
-  can swap in Qdrant or Chroma via `CAESAR_VECTOR_BACKEND` when they
-  outgrow `sqlite-vss`.
+  v0.4 stores embeddings as JSON in a regular SQLite column and runs
+  top-k cosine in Python — plenty fast for the thousands of rows a
+  homelab year produces, and zero extra install. The same interface
+  swaps to `sqlite-vec` (the modern successor to `sqlite-vss`, which
+  the original ADR named) once the row count justifies a real vector
+  index. Operators with very large semantic memory can later swap in
+  Qdrant or Chroma via the same abstraction.
+- **Embeddings** come from a provider-agnostic `Embedder` interface
+  (parallel to ADR-0011's LLM gateway). The default provider is
+  **Voyage AI** (Anthropic's recommended partner). A `StubEmbedder`
+  ships for tests so CI doesn't need an API key.
 
 Writes to memory are mediated by a dedicated Legion worker so the
 storage layer is swappable, and so writes can be audit-logged like any

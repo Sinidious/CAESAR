@@ -141,6 +141,104 @@ async def test_unknown_inprocess_worker_raises(nats_url: str, db_url: str, fake_
             pass
 
 
+def test_default_embedder_picks_voyage_when_api_key_present(db_url: str) -> None:
+    """When a Voyage key is configured, _default_embedder returns VoyageEmbedder."""
+
+    from caesar.config import SemanticSettings
+    from caesar.llm.embeddings import VoyageEmbedder
+    from caesar.praetor.app import _default_embedder
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        semantic=SemanticSettings(
+            enabled=True, voyage_api_key=SecretStr("vk-test"), embedding_dim=64
+        ),
+    )
+    embedder = _default_embedder(settings)
+    assert isinstance(embedder, VoyageEmbedder)
+
+
+def test_default_embedder_falls_back_to_stub(db_url: str) -> None:
+    from caesar.config import SemanticSettings
+    from caesar.llm.embeddings import StubEmbedder
+    from caesar.praetor.app import _default_embedder
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        semantic=SemanticSettings(enabled=True, embedding_dim=64),
+    )
+    embedder = _default_embedder(settings)
+    assert isinstance(embedder, StubEmbedder)
+
+
+def test_create_app_with_semantic_enabled_attaches_indexer(
+    db_url: str, engine, fake_gateway
+) -> None:
+    """When semantic is enabled, app.state.semantic_indexer is non-None."""
+
+    from caesar.config import SemanticSettings
+    from caesar.memory.semantic import SemanticIndexer
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        semantic=SemanticSettings(enabled=True, embedding_dim=64),
+    )
+    app = create_app(settings=settings, gateway=fake_gateway, engine=engine)
+    assert isinstance(app.state.semantic_indexer, SemanticIndexer)
+    assert app.state.embedder is not None
+
+
+async def test_lifespan_starts_and_stops_semantic_indexer(
+    db_url: str, engine, fake_gateway
+) -> None:
+    from caesar.config import SemanticSettings
+    from caesar.memory.semantic import SemanticIndexer
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        semantic=SemanticSettings(enabled=True, embedding_dim=64),
+    )
+    app = create_app(settings=settings, gateway=fake_gateway, engine=engine)
+    indexer: SemanticIndexer = app.state.semantic_indexer
+
+    running_during = False
+    async with app.router.lifespan_context(app):
+        running_during = indexer.is_running
+    running_after = indexer.is_running
+
+    assert running_during
+    assert not running_after
+
+
+async def test_semantic_recall_inprocess_worker_requires_embedder(
+    nats_url: str, db_url: str, fake_gateway
+) -> None:
+    """Listing semantic_recall as in-process worker without semantic.enabled fails fast."""
+
+    from caesar.config import BusSettings, LegionSettings
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        bus=BusSettings(enabled=True, url=nats_url),
+        legion=LegionSettings(inprocess_workers=["semantic_recall"]),
+        # semantic disabled
+    )
+    app = create_app(settings=settings, gateway=fake_gateway)
+    with pytest.raises(ValueError, match="CAESAR_SEMANTIC__ENABLED"):
+        async with app.router.lifespan_context(app):
+            pass
+
+
 async def test_lifespan_cleanup_runs_even_when_ha_not_configured(
     db_url: str, engine, fake_gateway
 ) -> None:
