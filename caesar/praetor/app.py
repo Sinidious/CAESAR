@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
 
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -81,36 +80,6 @@ def _build_inprocess_worker(
             max_limit=settings.legion.recall_max_limit,
         )
     raise ValueError(f"unknown in-process worker: {name!r}")
-
-
-async def _shutdown(
-    *,
-    sweeper: RetentionSweeper,
-    workers: list[Worker],
-    registry: WorkerRegistry | None,
-    bus: Bus | None,
-    ha: HAClient | None,
-    engine: AsyncEngine,
-    logger: Any,
-) -> None:
-    """Tear down everything the lifespan started, in reverse order.
-
-    Split out of the lifespan body so coverage tracing isn't confused
-    by the asynccontextmanager wrapping (a known Python 3.11 quirk
-    when a finally block lives inside the wrapped generator).
-    """
-
-    await sweeper.stop_background()
-    for worker in reversed(workers):
-        await worker.stop()
-    if registry is not None:
-        await registry.stop()
-    if bus is not None:
-        await bus.close()
-    if ha is not None:
-        await ha.aclose()
-    await engine.dispose()
-    logger.info("praetor.shutdown")
 
 
 def _default_policy(settings: CaesarSettings) -> Policy:
@@ -189,15 +158,17 @@ def create_app(
         try:
             yield
         finally:
-            await _shutdown(
-                sweeper=sweeper,
-                workers=workers,
-                registry=registry,
-                bus=bus,
-                ha=ha,
-                engine=engine,
-                logger=logger,
-            )
+            await sweeper.stop_background()
+            for worker in reversed(workers):
+                await worker.stop()
+            if registry is not None:
+                await registry.stop()
+            if bus is not None:
+                await bus.close()
+            if ha is not None:
+                await ha.aclose()
+            await engine.dispose()
+            logger.info("praetor.shutdown")
 
     app = FastAPI(
         title="CAESAR Praetor",
