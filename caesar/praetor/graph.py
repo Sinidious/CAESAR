@@ -33,6 +33,7 @@ from typing_extensions import TypedDict
 from caesar.db.audit import AuditLogger
 from caesar.ha.client import HAClient
 from caesar.ha.models import ServiceCall
+from caesar.legion.calculator import CAPABILITY as CALCULATOR_CAPABILITY
 from caesar.legion.registry import WorkerRegistry
 from caesar.llm.gateway import (
     ChatMessage,
@@ -43,7 +44,7 @@ from caesar.llm.gateway import (
     ToolUse,
 )
 from caesar.log import bind_decision, get_logger
-from caesar.policy.engine import Policy
+from caesar.policy.engine import GenericToolCall, Policy
 from caesar.praetor.dispatch import dispatch_service_call
 from caesar.praetor.safety import compose_system_prompt
 from caesar.tracing import span
@@ -127,6 +128,29 @@ RECALL_SEMANTIC_TOOL = ToolDefinition(
 )
 
 
+CALCULATOR_TOOL = ToolDefinition(
+    name="calculator",
+    description=(
+        "Evaluate an arithmetic expression deterministically. Supports "
+        "numbers, parens, + - * / // % **, and basic math functions "
+        "(sqrt, log, sin, cos, etc.). Use when the user wants a "
+        "definite numeric answer rather than a hand-waved one. The "
+        "expression is checked by the Policy Engine before it runs."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "expression": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+            },
+        },
+        "required": ["expression"],
+    },
+)
+
+
 def build_brain_graph(
     *,
     gateway: LLMGateway,
@@ -147,6 +171,8 @@ def build_brain_graph(
         tools.append(RECALL_MEMORY_TOOL)
     if registry is not None and registry.find(SEMANTIC_RECALL_CAPABILITY):
         tools.append(RECALL_SEMANTIC_TOOL)
+    if registry is not None and registry.find(CALCULATOR_CAPABILITY):
+        tools.append(CALCULATOR_TOOL)
 
     async def _handle_call_service(use: ToolUse, decision_id: str) -> ToolResult:
         try:
@@ -201,6 +227,72 @@ def build_brain_graph(
                 content=f"semantic_recall failed: {result.error}",
                 is_error=True,
             )
+        return ToolResult(
+            tool_use_id=use.id,
+            content=json.dumps(result.result or {}, default=str),
+            is_error=False,
+        )
+
+    async def _handle_generic_tool(
+        use: ToolUse,
+        decision_id: str,
+        *,
+        tool: str,
+        capability: str,
+    ) -> ToolResult:
+        """Policy-gate + dispatch a v1.3 tool worker (ADR-0028).
+
+        Calls the Policy Engine with a :class:`GenericToolCall`,
+        audit-logs ``tool.denied`` on rejection or ``tool.called``
+        on success, and returns the worker's result (or a
+        machine-readable error) for the LLM's next turn.
+        """
+
+        assert registry is not None  # invariant: tool only registered when registry set
+        call = GenericToolCall(tool=tool, input=use.input)
+        decision = policy.evaluate(call)
+        if not decision.allowed:
+            await audit.record(
+                "tool.denied",
+                {
+                    "decision_id": decision_id,
+                    "tool": tool,
+                    "input": use.input,
+                    "reason": decision.reason,
+                },
+            )
+            return ToolResult(
+                tool_use_id=use.id,
+                content=f"Denied: {decision.reason}",
+                is_error=True,
+            )
+        result = await registry.dispatch(capability, use.input, decision_id=decision_id)
+        if not result.success:
+            await audit.record(
+                "tool.called",
+                {
+                    "decision_id": decision_id,
+                    "tool": tool,
+                    "input": use.input,
+                    "success": False,
+                    "error": result.error,
+                },
+            )
+            return ToolResult(
+                tool_use_id=use.id,
+                content=f"{tool} failed: {result.error}",
+                is_error=True,
+            )
+        await audit.record(
+            "tool.called",
+            {
+                "decision_id": decision_id,
+                "tool": tool,
+                "input": use.input,
+                "success": True,
+                "result": result.result,
+            },
+        )
         return ToolResult(
             tool_use_id=use.id,
             content=json.dumps(result.result or {}, default=str),
@@ -264,6 +356,15 @@ def build_brain_graph(
                         results.append(await _handle_recall_memory(use, decision_id))
                     elif use.name == "semantic_recall":
                         results.append(await _handle_semantic_recall(use, decision_id))
+                    elif use.name == "calculator":
+                        results.append(
+                            await _handle_generic_tool(
+                                use,
+                                decision_id,
+                                tool="calculator",
+                                capability=CALCULATOR_CAPABILITY,
+                            )
+                        )
                     else:
                         results.append(
                             ToolResult(
