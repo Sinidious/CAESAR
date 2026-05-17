@@ -834,6 +834,109 @@ async def test_web_search_dispatch_success_path(
     assert "example.com" in tool_result.content
 
 
+async def test_calendar_read_tool_registered_when_capability_present(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    from caesar.policy.yaml_loader import AllowedToolRule
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(capabilities=["tool.calendar_read"])
+    policy = AllowlistPolicy(
+        RulesConfig(
+            version=1,
+            allowed_services=[],
+            allowed_tools=[AllowedToolRule(tool="calendar_read")],
+        )
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=policy,
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="what's on my calendar")],
+            "decision_id": "d-cal-1",
+            "iteration": 0,
+        }
+    )
+    tools = fake_gateway.calls[0]["tools"] or []
+    assert any(t.name == "calendar_read" for t in tools)
+
+
+async def test_calendar_read_dispatch_returns_events_to_llm(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    from caesar.policy.yaml_loader import AllowedToolRule
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(
+        capabilities=["tool.calendar_read"],
+        dispatch_result={
+            "from": "2026-05-17T00:00:00+00:00",
+            "to": "2026-05-24T00:00:00+00:00",
+            "events": [
+                {
+                    "title": "Standup",
+                    "start": "2026-05-17T09:00:00+00:00",
+                    "end": "2026-05-17T09:15:00+00:00",
+                    "calendar": "Work",
+                    "location": "",
+                    "description": "",
+                }
+            ],
+        },
+    )
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[
+                ToolUse(
+                    id="tu_cal",
+                    name="calendar_read",
+                    input={"from": "2026-05-17T00:00:00Z"},
+                )
+            ],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(content="One thing.", model="fake-model", input_tokens=3, output_tokens=4)
+    )
+    policy = AllowlistPolicy(
+        RulesConfig(
+            version=1,
+            allowed_services=[],
+            allowed_tools=[AllowedToolRule(tool="calendar_read")],
+        )
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=policy,
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="agenda?")],
+            "decision_id": "d-cal-2",
+            "iteration": 0,
+        }
+    )
+    assert registry.dispatch_calls == [
+        ("tool.calendar_read", {"from": "2026-05-17T00:00:00Z"}),
+    ]
+    tool_result = fake_gateway.calls[1]["messages"][-1].tool_results[0]
+    assert tool_result.is_error is False
+    assert "Standup" in tool_result.content
+
+
 async def test_iteration_cap_bails_out(
     fake_gateway: FakeGateway, engine: AsyncEngine, mock_ha: HAClient
 ) -> None:

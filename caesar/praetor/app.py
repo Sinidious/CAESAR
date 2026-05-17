@@ -21,6 +21,7 @@ from caesar.db.engine import create_engine
 from caesar.db.settings_store import SettingsStore
 from caesar.ha.client import HAClient
 from caesar.legion.calculator import CalculatorWorker
+from caesar.legion.calendar_read import CalDAVClient, CalendarReadWorker
 from caesar.legion.memory_recall import MemoryRecallWorker
 from caesar.legion.registry import WorkerRegistry
 from caesar.legion.semantic_recall import SemanticRecallWorker
@@ -208,6 +209,25 @@ def _build_inprocess_worker(
             client,
             default_limit=settings.tools.web_search.result_limit,
             max_limit=settings.tools.web_search.max_result_limit,
+        )
+    if name == "calendar_read":
+        if settings.tools.calendar.password is None:
+            raise ValueError(
+                "calendar_read worker requires CAESAR_TOOLS__CALENDAR__PASSWORD",
+            )
+        caldav_client = CalDAVClient(
+            caldav_url=settings.tools.calendar.caldav_url,
+            username=settings.tools.calendar.username,
+            password=settings.tools.calendar.password.get_secret_value(),
+            calendar_names=settings.tools.calendar.calendar_names or None,
+        )
+        return CalendarReadWorker(
+            bus,
+            caldav_client,
+            default_limit=settings.tools.calendar.default_event_limit,
+            max_limit=settings.tools.calendar.max_event_limit,
+            default_range_days=settings.tools.calendar.default_range_days,
+            max_range_days=settings.tools.calendar.max_range_days,
         )
     raise ValueError(f"unknown in-process worker: {name!r}")
 

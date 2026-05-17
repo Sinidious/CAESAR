@@ -46,6 +46,7 @@ dependencies = [
     "nats-py>=2.7.0",
     "nkeys>=0.2.0",
     "voyageai>=0.2.0",
+    "caldav>=1.4.0",
     "jinja2>=3.1.4",
     "python-multipart>=0.0.20",
     "itsdangerous>=2.2.0",
@@ -132,7 +133,7 @@ disallow_incomplete_defs = false
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["langgraph.*", "voyageai.*", "nkeys.*"]
+module = ["langgraph.*", "voyageai.*", "nkeys.*", "caldav.*", "vobject.*", "icalendar.*"]
 ignore_missing_imports = true
 
 # OpenTelemetry is an opt-in extra (ADR-0023). CI doesn't install it,
