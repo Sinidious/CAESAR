@@ -50,3 +50,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0022 | [Backup and restore via SQLite Online Backup API](0022-backup-restore.md) | Accepted |
 | 0023 | [OpenTelemetry tracing as an opt-in extra](0023-opentelemetry-tracing.md) | Accepted |
 | 0024 | [Documentation site on mkdocs-material + GitHub Pages](0024-docs-site-mkdocs.md) | Accepted |
+| 0025 | [Lightweight security review as a living document](0025-security-review.md) | Accepted |
