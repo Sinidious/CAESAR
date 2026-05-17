@@ -61,7 +61,7 @@ class StubEmbedder:
         return [x / norm for x in floats]
 
 
-class VoyageEmbedder:
+class VoyageEmbedder:  # pragma: no cover - thin network wrapper; behaviour proven by env-gated live test
     """Async wrapper around the ``voyageai`` client."""
 
     def __init__(self, api_key: str, *, model: str = "voyage-3.5", dimension: int = 1024) -> None:
@@ -77,7 +77,7 @@ class VoyageEmbedder:
             response: Any = await self._client.embed(
                 texts=texts, model=self.model, input_type="document"
             )
-        except Exception as exc:  # pragma: no cover - network path
+        except Exception as exc:
             raise EmbedderError(f"voyage embed failed: {exc}") from exc
         embeddings = response.embeddings
         self._logger.info(

@@ -279,6 +279,66 @@ async def test_recall_memory_tool_dispatches_via_registry(
         await worker.stop()
 
 
+async def test_semantic_recall_failure_propagates_as_error_result(
+    fake_gateway: FakeGateway, engine: AsyncEngine, bus, registry
+) -> None:
+    """Worker errors flow back to the brain as is_error tool_results."""
+
+    import asyncio
+
+    from caesar.legion.semantic_recall import CAPABILITY, SemanticRecallWorker
+    from caesar.llm.embeddings import StubEmbedder
+
+    audit = AuditLogger(engine)
+    worker = SemanticRecallWorker(bus, engine, StubEmbedder(dimension=32))
+    await worker.start()
+    try:
+        for _ in range(50):
+            if CAPABILITY in set(registry.capabilities()):
+                break
+            await asyncio.sleep(0.02)
+
+        # Empty query → worker raises ValueError → TaskResult.success=False
+        fake_gateway.queue(
+            ChatResponse(
+                content="",
+                model="fake-model",
+                input_tokens=1,
+                output_tokens=2,
+                stop_reason="tool_use",
+                tool_uses=[ToolUse(id="s-bad", name="semantic_recall", input={"query": ""})],
+            )
+        )
+        fake_gateway.queue(
+            ChatResponse(
+                content="Sorry, that didn't work.",
+                model="fake-model",
+                input_tokens=3,
+                output_tokens=4,
+            )
+        )
+
+        graph = build_brain_graph(
+            gateway=fake_gateway,
+            ha=None,
+            policy=DenyAllPolicy(),
+            audit=audit,
+            registry=registry,
+        )
+        await graph.ainvoke(
+            {
+                "messages": [ChatMessage(role="user", content="recall")],
+                "decision_id": "d-sem-bad",
+                "iteration": 0,
+            }
+        )
+        result = fake_gateway.calls[1]["messages"][-1].tool_results[0]
+        assert result.is_error is True
+        assert "semantic_recall failed" in result.content
+    finally:
+        await worker.stop()
+
+
 async def test_semantic_recall_tool_dispatches_via_registry(
     fake_gateway: FakeGateway, engine: AsyncEngine, bus, registry
 ) -> None:

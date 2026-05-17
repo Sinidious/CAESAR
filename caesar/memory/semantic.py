@@ -141,7 +141,7 @@ async def cosine_top_k(
     scored: list[tuple[float, RecalledChunk]] = []
     for row in rows:
         vec = row["embedding"]
-        if not isinstance(vec, list):
+        if not isinstance(vec, list):  # pragma: no cover - defensive; embeddings are always lists
             continue
         similarity = _cosine(query_vector, vec)
         chunk = RecalledChunk(
