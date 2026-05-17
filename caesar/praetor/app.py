@@ -24,6 +24,7 @@ from caesar.legion.worker import Worker
 from caesar.llm.anthropic import AnthropicProvider
 from caesar.llm.gateway import LLMGateway
 from caesar.log import configure_logging, get_logger
+from caesar.memory.retention import RetentionSweeper
 from caesar.policy.allowlist import AllowlistPolicy
 from caesar.policy.engine import DenyAllPolicy, Policy
 from caesar.policy.yaml_loader import load_rules
@@ -117,6 +118,12 @@ def create_app(
     bus = bus if bus is not None else _default_bus(settings)
     registry = WorkerRegistry(bus) if bus is not None else None
     audit = AuditLogger(engine)
+    sweeper = RetentionSweeper(
+        engine,
+        audit,
+        retention_days=settings.memory.retention_days,
+        interval_seconds=settings.memory.sweep_interval_seconds,
+    )
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -136,6 +143,7 @@ def create_app(
                 reason="bus disabled",
                 workers=settings.legion.inprocess_workers,
             )
+        sweeper.start_background()
         logger.info(
             "praetor.startup",
             version=__version__,
@@ -144,10 +152,13 @@ def create_app(
             policy=type(policy).__name__,
             bus_enabled=bus is not None,
             inprocess_workers=[w.worker_id for w in workers],
+            retention_days=settings.memory.retention_days,
         )
+
         try:
             yield
         finally:
+            await sweeper.stop_background()
             for worker in reversed(workers):
                 await worker.stop()
             if registry is not None:
@@ -172,6 +183,7 @@ def create_app(
     app.state.audit = audit
     app.state.bus = bus
     app.state.registry = registry
+    app.state.sweeper = sweeper
 
     app.middleware("http")(request_id_middleware)
     app.include_router(health.router)

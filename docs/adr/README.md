@@ -45,3 +45,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0017 | [Configuration via pydantic-settings with layered sources](0017-configuration.md) | Accepted |
 | 0018 | [Structured logging with structlog](0018-structured-logging.md)           | Accepted |
 | 0019 | [SQLite persistence via SQLAlchemy Core and Alembic](0019-sqlite-persistence.md) | Accepted |
+| 0020 | [Episodic memory retention via time-based TTL](0020-memory-retention-ttl.md) | Accepted |
