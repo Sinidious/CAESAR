@@ -147,9 +147,9 @@ def create_app(
     ha = ha if ha is not None else _default_ha(settings)
     policy = policy if policy is not None else _default_policy(settings)
     bus = bus if bus is not None else _default_bus(settings)
-    registry = WorkerRegistry(bus) if bus is not None else None
     audit_bus = AuditEventBus()
     audit = AuditLogger(engine, bus=audit_bus)
+    registry = WorkerRegistry(bus, audit=audit) if bus is not None else None
     sweeper = RetentionSweeper(
         engine,
         audit,

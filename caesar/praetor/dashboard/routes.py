@@ -20,12 +20,14 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from caesar.config import DashboardSettings
 from caesar.db.schema import audit_log
+from caesar.legion.registry import WorkerRegistry
 from caesar.praetor.audit_bus import AuditEventBus
 from caesar.praetor.dashboard.auth import (
     make_session_cookie,
     require_session,
     token_matches,
 )
+from caesar.praetor.dashboard.views import load_agent_activity, load_intents
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 TEMPLATES_DIR = PACKAGE_ROOT / "templates"
@@ -44,9 +46,14 @@ def _bus_from(request: Request) -> AuditEventBus:
     return cast(AuditEventBus, request.app.state.audit_bus)
 
 
+def _registry_from(request: Request) -> WorkerRegistry | None:
+    return cast("WorkerRegistry | None", request.app.state.registry)
+
+
 SettingsDep = Annotated[DashboardSettings, Depends(_settings_from)]
 EngineDep = Annotated[AsyncEngine, Depends(_engine_from)]
 BusDep = Annotated[AuditEventBus, Depends(_bus_from)]
+RegistryDep = Annotated["WorkerRegistry | None", Depends(_registry_from)]
 SessionDep = Annotated[None, Depends(require_session)]
 
 
@@ -115,6 +122,38 @@ def build_router() -> APIRouter:
             for row in rows
         ]
         return templates.TemplateResponse(request, "_audit_rows.html", {"items": items})
+
+    @router.get("/intents", response_class=HTMLResponse)
+    async def intents(
+        request: Request,
+        _: SessionDep,
+        settings: SettingsDep,
+        engine: EngineDep,
+    ) -> HTMLResponse:
+        intents = await load_intents(engine, limit=settings.history_limit)
+        return templates.TemplateResponse(request, "intents.html", {"intents": intents})
+
+    @router.get("/agents", response_class=HTMLResponse)
+    async def agents(
+        request: Request,
+        _: SessionDep,
+        settings: SettingsDep,
+        engine: EngineDep,
+        registry: RegistryDep,
+    ) -> HTMLResponse:
+        workers = registry.workers if registry is not None else {}
+        agent_rows, dispatches = await load_agent_activity(
+            engine, workers=workers, history_limit=settings.history_limit
+        )
+        return templates.TemplateResponse(
+            request,
+            "agents.html",
+            {
+                "agents": agent_rows,
+                "dispatches": dispatches,
+                "bus_enabled": registry is not None,
+            },
+        )
 
     @router.get("/audit/stream")
     async def audit_stream(_: SessionDep, bus: BusDep) -> StreamingResponse:

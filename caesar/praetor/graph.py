@@ -171,9 +171,11 @@ def build_brain_graph(
             is_error=True,
         )
 
-    async def _handle_recall_memory(use: ToolUse) -> ToolResult:
+    async def _handle_recall_memory(use: ToolUse, decision_id: str) -> ToolResult:
         assert registry is not None  # invariant: tool only registered when registry set
-        result = await registry.dispatch(MEMORY_RECALL_CAPABILITY, use.input)
+        result = await registry.dispatch(
+            MEMORY_RECALL_CAPABILITY, use.input, decision_id=decision_id
+        )
         if not result.success:
             return ToolResult(
                 tool_use_id=use.id,
@@ -186,9 +188,11 @@ def build_brain_graph(
             is_error=False,
         )
 
-    async def _handle_semantic_recall(use: ToolUse) -> ToolResult:
+    async def _handle_semantic_recall(use: ToolUse, decision_id: str) -> ToolResult:
         assert registry is not None  # invariant: tool only registered when registry set
-        result = await registry.dispatch(SEMANTIC_RECALL_CAPABILITY, use.input)
+        result = await registry.dispatch(
+            SEMANTIC_RECALL_CAPABILITY, use.input, decision_id=decision_id
+        )
         if not result.success:
             return ToolResult(
                 tool_use_id=use.id,
@@ -236,9 +240,9 @@ def build_brain_graph(
                 if use.name == "call_service":
                     results.append(await _handle_call_service(use, decision_id))
                 elif use.name == "recall_memory":
-                    results.append(await _handle_recall_memory(use))
+                    results.append(await _handle_recall_memory(use, decision_id))
                 elif use.name == "semantic_recall":
-                    results.append(await _handle_semantic_recall(use))
+                    results.append(await _handle_semantic_recall(use, decision_id))
                 else:
                     results.append(
                         ToolResult(
