@@ -96,12 +96,12 @@ def spawn_nats_with_nkey_auth(
 
         authorization {{
           users: [
-            {{ nkey: "{praetor_public_key}",
-              permissions: {{
-                publish:   {{ allow: ["caesar.>"] }},
-                subscribe: {{ allow: ["caesar.>"] }},
-              }},
-            }},
+            # Praetor (admin): no permissions block = full access.
+            # The orchestrator's request/reply path uses _INBOX.>
+            # subjects, so an allow-list scoped to caesar.> would
+            # break dispatches. Praetor is trusted by definition;
+            # constraining it serves no one.
+            {{ nkey: "{praetor_public_key}" }},
             {{ nkey: "{worker_public_key}",
               permissions: {{
                 publish: {{

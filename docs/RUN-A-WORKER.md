@@ -64,16 +64,15 @@ human-friendly worker label goes in a comment above each entry:
 }
 ```
 
-Praetor's permissions are wider — it owns the orchestration layer:
+Praetor is the orchestrator; **no permissions block** means full
+access. An allow-list scoped to `caesar.>` would also block the
+temporary `_INBOX.>` subjects NATS uses for request/reply, so the
+restriction would break legitimate dispatches without any
+defensive value.
 
 ```hocon
 # caesar-praetor
-{ nkey: "U…",
-  permissions: {
-    publish:   { allow: ["caesar.>"] },
-    subscribe: { allow: ["caesar.>"] },
-  },
-}
+{ nkey: "U…" }
 ```
 
 Reload (or restart) `nats-server` after editing.
