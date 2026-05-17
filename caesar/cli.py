@@ -6,10 +6,13 @@ the system lands:
     caesar praetor serve     # start the brain HTTP service
     caesar praetor migrate   # apply schema migrations
     caesar memory sweep      # one-shot retention sweep
+    caesar db backup         # hot-safe SQLite snapshot
+    caesar db restore        # replace the live DB with a snapshot
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -25,6 +28,9 @@ app.add_typer(praetor_app, name="praetor")
 
 memory_app = typer.Typer(help="Episodic-memory maintenance commands.", no_args_is_help=True)
 app.add_typer(memory_app, name="memory")
+
+db_app = typer.Typer(help="Database maintenance commands.", no_args_is_help=True)
+app.add_typer(db_app, name="db")
 
 
 @praetor_app.command("serve")
@@ -114,6 +120,54 @@ def memory_sweep(
             await engine.dispose()
 
     asyncio.run(_run())
+
+
+@db_app.command("backup")
+def db_backup(
+    to: Annotated[
+        Path,
+        typer.Option("--to", help="Destination .sqlite3 path."),
+    ],
+    overwrite: Annotated[
+        bool,
+        typer.Option(help="Overwrite if the destination already exists."),
+    ] = False,
+) -> None:
+    """Take a hot-safe snapshot of the live SQLite database."""
+
+    from caesar.db.backup import BackupError, backup_to
+
+    settings = get_settings()
+    configure_logging(settings.log)
+    try:
+        dest = backup_to(settings.db.url, to, overwrite=overwrite)
+    except BackupError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(f"Backed up {settings.db.url} → {dest}")
+
+
+@db_app.command("restore")
+def db_restore(
+    source: Annotated[
+        Path,
+        typer.Option("--from", help="Source backup .sqlite3 file."),
+    ],
+    force: Annotated[
+        bool,
+        typer.Option(help="Overwrite the live DB. Stop Praetor first."),
+    ] = False,
+) -> None:
+    """Replace the live SQLite database with a verified backup."""
+
+    from caesar.db.backup import BackupError, restore_from
+
+    settings = get_settings()
+    configure_logging(settings.log)
+    try:
+        dest = restore_from(settings.db.url, source, force=force)
+    except BackupError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(f"Restored {source} → {dest}")
 
 
 if __name__ == "__main__":  # pragma: no cover
