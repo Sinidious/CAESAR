@@ -299,6 +299,59 @@ async def test_caldav_client_aclose_is_safe() -> None:
     await client.aclose()
 
 
+async def test_handle_rejects_zero_limit() -> None:
+    worker = _worker(_FakeClient(events=[]))
+    with pytest.raises(ValueError, match=">= 1"):
+        await worker.handle(
+            TaskDispatch(
+                task_id="t",
+                capability=CAPABILITY,
+                payload={"limit": 0},
+            )
+        )
+
+
+async def test_worker_aclose_delegates_to_client() -> None:
+    """``worker.aclose()`` releases the client's resources."""
+
+    closed: list[bool] = []
+
+    class _ClosableClient:
+        async def fetch_events(
+            self, *, start: datetime, end: datetime, limit: int
+        ) -> list[dict[str, Any]]:
+            return []
+
+        async def aclose(self) -> None:
+            closed.append(True)
+
+    worker = CalendarReadWorker(bus=None, client=_ClosableClient())  # type: ignore[arg-type]
+    await worker.aclose()
+    assert closed == [True]
+
+
+def test_normalise_event_returns_none_when_no_vevent() -> None:
+    """vcal with no subcomponents and no .vevent attr yields None."""
+
+    class _EmptyVCal:
+        # Has neither subcomponents nor vevent.
+        pass
+
+    class _Event:
+        vobject_instance: ClassVar[_EmptyVCal] = _EmptyVCal()
+
+    assert _normalise_event(_Event(), calendar_name="x") is None
+
+
+def test_vget_returns_none_for_empty_vobject_list() -> None:
+    """vobject contents present but the list is empty."""
+
+    class _VEvent:
+        contents: ClassVar[dict[str, list[object]]] = {"summary": []}
+
+    assert _vget(_VEvent(), "summary") is None
+
+
 async def test_handle_translates_client_error_to_value_error() -> None:
     class _ExplodingClient:
         async def fetch_events(
