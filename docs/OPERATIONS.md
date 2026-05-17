@@ -114,6 +114,29 @@ scrape_configs:
     scrape_interval: 30s
 ```
 
+### Locking `/metrics` down
+
+`/metrics` is open by default — fine when Praetor binds loopback
+(the default since SR-001). If you deliberately expose Praetor on
+the LAN (`CAESAR_SERVER__HOST=0.0.0.0`), set
+`CAESAR_METRICS__TOKEN` so scrapes need
+`Authorization: Bearer <token>`:
+
+```sh
+export CAESAR_METRICS__TOKEN=$(openssl rand -hex 32)
+```
+
+Prometheus then scrapes with:
+
+```yaml
+scrape_configs:
+  - job_name: caesar
+    bearer_token_file: /etc/prometheus/caesar.token
+    static_configs:
+      - targets: ['caesar.internal:8000']
+    metrics_path: /metrics
+```
+
 
 ## Tracing
 
