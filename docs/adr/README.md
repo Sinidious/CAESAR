@@ -8,7 +8,7 @@ a new ADR supersedes the old one and links back.
 ## Process
 
 1. Discuss the idea in an issue using the
-   [ADR proposal](../../.github/ISSUE_TEMPLATE/adr_proposal.yml)
+   [ADR proposal](https://github.com/Sinidious/CAESAR/blob/main/.github/ISSUE_TEMPLATE/adr_proposal.yml)
    template.
 2. Run `just adr-new "<short title>"` to copy
    [`0000-template.md`](0000-template.md) to the next number.
@@ -49,3 +49,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0021 | [Dashboard: server-rendered HTMX, SSE, single-token auth](0021-dashboard-htmx.md) | Accepted |
 | 0022 | [Backup and restore via SQLite Online Backup API](0022-backup-restore.md) | Accepted |
 | 0023 | [OpenTelemetry tracing as an opt-in extra](0023-opentelemetry-tracing.md) | Accepted |
+| 0024 | [Documentation site on mkdocs-material + GitHub Pages](0024-docs-site-mkdocs.md) | Accepted |

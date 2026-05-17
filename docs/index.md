@@ -19,12 +19,12 @@ Pre-alpha. Don't deploy this on anything you care about yet.
 
 ## License
 
-CAESAR is licensed under [PolyForm Noncommercial 1.0.0](../LICENSE).
+CAESAR is licensed under [PolyForm Noncommercial 1.0.0](https://github.com/Sinidious/CAESAR/blob/main/LICENSE).
 Personal and noncommercial homelab use is welcome; commercial use
-requires a separate agreement. See [README.md](../README.md) for the
+requires a separate agreement. See [README.md](https://github.com/Sinidious/CAESAR/blob/main/README.md) for the
 short version.
 
 ## Contributing
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md). Every contributor signs the
-[CLA](../CLA.md) the first time they open a PR.
+See [CONTRIBUTING.md](https://github.com/Sinidious/CAESAR/blob/main/CONTRIBUTING.md). Every contributor signs the
+[CLA](https://github.com/Sinidious/CAESAR/blob/main/CLA.md) the first time they open a PR.

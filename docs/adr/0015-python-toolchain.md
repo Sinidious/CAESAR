@@ -79,7 +79,7 @@ Branch protection on `main` requires those checks plus the CLA gate
   tax occasionally. We log each as `[reason]` so they're easy to
   audit.
 - New contributors have one more tool (`just`) to install. Documented
-  in [CONTRIBUTING.md](../../CONTRIBUTING.md).
+  in [CONTRIBUTING.md](https://github.com/Sinidious/CAESAR/blob/main/CONTRIBUTING.md).
 
 ### Neutral
 

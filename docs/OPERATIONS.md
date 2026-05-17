@@ -1,7 +1,7 @@
 # Operations
 
 Day-to-day notes for running CAESAR on your own hardware. Architecture
-decisions are in [docs/adr/](adr/); this file is for the operator.
+decisions are in the [ADR index](adr/README.md); this file is for the operator.
 
 ## Backup and restore
 

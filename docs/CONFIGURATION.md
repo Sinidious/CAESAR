@@ -1,7 +1,7 @@
 # Configuration
 
 CAESAR is configured by environment variables. The canonical example is
-[`.env.example`](../.env.example) at the repo root — copy it to `.env`
+[`.env.example`](https://github.com/Sinidious/CAESAR/blob/main/.env.example) at the repo root — copy it to `.env`
 and fill in real values.
 
 > Pre-alpha: many variables below describe components that are not yet

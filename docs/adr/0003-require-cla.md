@@ -18,18 +18,18 @@ relicense their work later — even to a more permissive license.
 
 ## Decision
 
-Every contributor signs the [CAESAR CLA](../../CLA.md) before their
+Every contributor signs the [CAESAR CLA](https://github.com/Sinidious/CAESAR/blob/main/CLA.md) before their
 first PR is merged. The CLA grants the maintainer a broad license to
 use, sublicense, and dual-license contributed code, while leaving the
 contributor as the copyright owner.
 
 Enforcement: the
-[`cla.yml`](../../.github/workflows/cla.yml) workflow uses
+[`cla.yml`](https://github.com/Sinidious/CAESAR/blob/main/.github/workflows/cla.yml) workflow uses
 **CLA Assistant Lite** (`contributor-assistant/github-action`) to:
 
 - Comment on PRs from new contributors with the signing instruction.
 - Record signatures in
-  [`.github/cla-signatures.json`](../../.github/cla-signatures.json).
+  [`.github/cla-signatures.json`](https://github.com/Sinidious/CAESAR/blob/main/.github/cla-signatures.json).
 - Block merges until the contributor signs by replying with the
   prescribed comment.
 
@@ -74,6 +74,6 @@ Bots (`dependabot[bot]`, `renovate[bot]`, `release-please[bot]`,
 
 ## References
 
-- [CLA.md](../../CLA.md)
+- [CLA.md](https://github.com/Sinidious/CAESAR/blob/main/CLA.md)
 - [contributor-assistant/github-action](https://github.com/contributor-assistant/github-action)
 - [Apache ICLA reference](https://www.apache.org/licenses/icla.pdf)

@@ -33,7 +33,7 @@ CAESAR uses **trunk-based development**:
   - `release/v<X.Y>` for hotfix branches when we need them (we do
     not preemptively create these).
 - PRs are **squash-merged**. The PR title — validated by
-  [`pr-lint.yml`](../../.github/workflows/pr-lint.yml) — becomes the
+  [`pr-lint.yml`](https://github.com/Sinidious/CAESAR/blob/main/.github/workflows/pr-lint.yml) — becomes the
   commit subject on `main`.
 - Branch protection on `main`: required status checks (lint,
   typecheck, test 3.11 + 3.12, CLA Assistant Lite), required CODEOWNER
@@ -80,4 +80,4 @@ CAESAR uses **trunk-based development**:
 
 - [Trunk-Based Development](https://trunkbaseddevelopment.com/)
 - [Conventional Commits](https://www.conventionalcommits.org)
-- [`pr-lint.yml`](../../.github/workflows/pr-lint.yml)
+- [`pr-lint.yml`](https://github.com/Sinidious/CAESAR/blob/main/.github/workflows/pr-lint.yml)

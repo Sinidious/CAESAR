@@ -64,5 +64,5 @@ as application code lands and we discover where reality bites.
 
 ## Reporting issues
 
-See [SECURITY.md](../SECURITY.md) — use GitHub's private vulnerability
+See [SECURITY.md](https://github.com/Sinidious/CAESAR/blob/main/SECURITY.md) — use GitHub's private vulnerability
 reporting, not public issues.

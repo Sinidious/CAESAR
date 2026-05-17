@@ -1,21 +1,29 @@
 site_name: CAESAR
 site_description: Self-hosted homelab AI assistant — Praetor brain + Legion of workers.
-site_url: https://sinidious.github.io/caesar/
-repo_url: https://github.com/sinidious/caesar
-repo_name: sinidious/caesar
+site_url: https://sinidious.github.io/CAESAR/
+repo_url: https://github.com/Sinidious/CAESAR
+repo_name: Sinidious/CAESAR
 edit_uri: edit/main/docs/
 copyright: PolyForm Noncommercial 1.0.0 — CAESAR contributors.
 
 docs_dir: docs
 strict: true
 
+exclude_docs: |
+  adr/0000-template.md
+
 theme:
   name: material
   features:
     - content.code.copy
+    - content.action.edit
+    - content.action.view
     - navigation.indexes
     - navigation.sections
+    - navigation.tabs
     - navigation.top
+    - navigation.tracking
+    - search.highlight
     - search.suggest
     - toc.follow
   palette:
@@ -33,6 +41,8 @@ theme:
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
 
 markdown_extensions:
   - admonition
@@ -43,6 +53,10 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
@@ -50,12 +64,50 @@ markdown_extensions:
   - toc:
       permalink: true
 
+plugins:
+  - search
+
 nav:
   - Home: index.md
   - Architecture: ARCHITECTURE.md
   - Roadmap: ROADMAP.md
-  - Glossary: GLOSSARY.md
-  - Security model: SECURITY-MODEL.md
+  - Operations: OPERATIONS.md
   - Configuration: CONFIGURATION.md
+  - Security model: SECURITY-MODEL.md
+  - Glossary: GLOSSARY.md
   - ADRs:
       - Index: adr/README.md
+      - "0001 — Record architecture decisions": adr/0001-record-architecture-decisions.md
+      - "0002 — License under PolyForm Noncommercial 1.0.0": adr/0002-license-polyform-nc.md
+      - "0003 — Require a CLA": adr/0003-require-cla.md
+      - "0004 — Conventional Commits + release-please": adr/0004-conventional-commits-and-release-please.md
+      - "0005 — Python 3.11 runtime": adr/0005-python-3-11-runtime.md
+      - "0006 — Praetor on FastAPI + LangGraph": adr/0006-praetor-runtime.md
+      - "0007 — Home Assistant bridge": adr/0007-home-assistant-bridge.md
+      - "0008 — Voice via client-side transcription": adr/0008-voice-wyoming.md
+      - "0009 — NATS message bus": adr/0009-message-bus-nats.md
+      - "0010 — Hybrid memory store": adr/0010-memory-hybrid.md
+      - "0011 — LLM Gateway": adr/0011-llm-gateway.md
+      - "0012 — Audit log": adr/0012-audit-log.md
+      - "0013 — Policy engine": adr/0013-policy-engine.md
+      - "0014 — Trunk-based development": adr/0014-trunk-based-development.md
+      - "0015 — Python toolchain": adr/0015-python-toolchain.md
+      - "0016 — Package layout": adr/0016-package-layout.md
+      - "0017 — Configuration": adr/0017-configuration.md
+      - "0018 — Structured logging": adr/0018-structured-logging.md
+      - "0019 — SQLite persistence": adr/0019-sqlite-persistence.md
+      - "0020 — Memory retention TTL": adr/0020-memory-retention-ttl.md
+      - "0021 — Dashboard (HTMX)": adr/0021-dashboard-htmx.md
+      - "0022 — Backup and restore": adr/0022-backup-restore.md
+      - "0023 — OpenTelemetry tracing": adr/0023-opentelemetry-tracing.md
+      - "0024 — Documentation site": adr/0024-docs-site-mkdocs.md
+
+validation:
+  omitted_files: warn
+  absolute_links: relative_to_docs
+  unrecognized_links: warn
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Sinidious/CAESAR
