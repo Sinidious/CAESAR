@@ -27,7 +27,7 @@ class DatabaseSettings(BaseModel):
     echo: bool = False
 
 
-LLMProvider = Literal["anthropic", "openai"]
+LLMProvider = Literal["anthropic", "openai", "ollama"]
 
 
 class AnthropicProviderSettings(BaseModel):
@@ -46,6 +46,16 @@ class OpenAIProviderSettings(BaseModel):
 
     api_key: SecretStr | None = None
     base_url: str | None = None
+
+
+class OllamaProviderSettings(BaseModel):
+    """Ollama-specific gateway configuration (ADR-0026).
+
+    Fully-local operation: no API key required. ``base_url`` points
+    at the Ollama HTTP API (default ``http://localhost:11434``).
+    """
+
+    base_url: str = "http://localhost:11434"
 
 
 class LLMSettings(BaseModel):
@@ -68,6 +78,7 @@ class LLMSettings(BaseModel):
     # Per-provider sub-settings (ADR-0026).
     anthropic: AnthropicProviderSettings = Field(default_factory=AnthropicProviderSettings)
     openai: OpenAIProviderSettings = Field(default_factory=OpenAIProviderSettings)
+    ollama: OllamaProviderSettings = Field(default_factory=OllamaProviderSettings)
 
 
 class LogSettings(BaseModel):
