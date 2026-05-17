@@ -11,13 +11,16 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from caesar.bus.client import Bus
 from caesar.config import CaesarSettings, DatabaseSettings, LLMSettings, LogSettings
 from caesar.db.engine import create_engine
 from caesar.db.migrate import upgrade_to_head
 from caesar.ha.client import HAClient
 from caesar.ha.models import ServiceCall
+from caesar.legion.registry import WorkerRegistry
 from caesar.llm.gateway import ChatMessage, ChatResponse, LLMGateway, ToolDefinition
 from caesar.policy.engine import Policy, PolicyDecision
+from tests.fakebus import find_nats_binary, spawn_nats
 from tests.fakeha import VALID_TOKEN, make_rest_app
 
 
@@ -208,6 +211,45 @@ async def client_with_ha(
         app.router.lifespan_context(app),
     ):
         yield ac
+
+
+@pytest.fixture(scope="session")
+def nats_url() -> Iterator[str]:
+    """A live nats-server URL for the test session.
+
+    Skips the whole module if the binary isn't on PATH. CI installs
+    nats-server explicitly; local devs can install via `brew install
+    nats-server`, `scoop install nats-server`, etc.
+    """
+
+    binary = find_nats_binary()
+    if binary is None:
+        pytest.skip("nats-server not on PATH; install it to run bus tests.")
+    yield from spawn_nats(binary)
+
+
+@pytest.fixture
+async def bus(nats_url: str) -> AsyncIterator[Bus]:
+    """A connected Bus pointing at the session's nats-server."""
+
+    b = Bus(nats_url)
+    await b.connect()
+    try:
+        yield b
+    finally:
+        await b.close()
+
+
+@pytest.fixture
+async def registry(bus: Bus) -> AsyncIterator[WorkerRegistry]:
+    """A started WorkerRegistry bound to the test bus."""
+
+    r = WorkerRegistry(bus)
+    await r.start()
+    try:
+        yield r
+    finally:
+        await r.stop()
 
 
 @pytest.fixture(autouse=True)

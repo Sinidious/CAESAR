@@ -109,6 +109,22 @@ Pre-commit hooks run on every commit. Install once with:
 just setup
 ```
 
+### Tests that need `nats-server`
+
+The bus + Legion tests (`tests/test_bus.py`, `tests/test_legion_*.py`,
+`tests/test_praetor_app.py::test_lifespan_connects_and_disconnects_bus`)
+spin up a real `nats-server` subprocess. Tests skip cleanly when the
+binary isn't on `PATH`. CI installs it automatically; for full local
+coverage, install once:
+
+- macOS: `brew install nats-server`
+- Windows: `scoop install nats-server` (or download from
+  https://github.com/nats-io/nats-server/releases)
+- Linux: download from GitHub releases and put on `PATH`
+
+Without `nats-server`, those tests skip and the coverage gate may fail
+locally — CI is the source of truth.
+
 ### CI status checks
 
 `main` branch protection requires:
