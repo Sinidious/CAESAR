@@ -116,7 +116,7 @@ ADR-0027 covers the design (and closes SR-009 in the process).
       nats-server.conf snippet shipped under `examples/`).
 - [ ] Worker bootstrap script / docs: how to provision a new
       worker on a fresh machine.
-- [ ] End-to-end test: two-process worker registers and answers a
+- [x] End-to-end test: two-process worker registers and answers a
       dispatch over an authed bus. Gated when nats-server is on
       `PATH` (same pattern as the existing bus tests).
 - [ ] Docs: "Run a worker on another box" page.

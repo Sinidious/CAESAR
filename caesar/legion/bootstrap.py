@@ -24,17 +24,18 @@ _NAME_PREFIX = "caesar-worker-"
 
 @dataclass(frozen=True)
 class WorkerIdentity:
-    """The result of minting a new NKEY identity for a Legion worker."""
+    """The result of minting a new NKEY identity for a Legion worker.
+
+    NKEY identities are matched by the public key alone — NATS rejects
+    ``user:`` alongside ``nkey:`` in ``authorization.users``. The
+    ``name`` field is just a human label that flows into the reply
+    subject scope (``caesar.reply.<name>.>``); the auth path doesn't
+    use it at all.
+    """
 
     name: str
     seed: str
     public_key: str
-
-    @property
-    def nats_user_name(self) -> str:
-        """The ``user`` value the worker passes in ``CAESAR_BUS__AUTH__USER``."""
-
-        return f"{_NAME_PREFIX}{self.name}"
 
     @property
     def reply_subject_glob(self) -> str:
@@ -42,11 +43,17 @@ class WorkerIdentity:
 
     def nats_users_block(self) -> str:
         """A snippet to drop under ``authorization.users`` in
-        ``nats-server.conf``."""
+        ``nats-server.conf``.
+
+        Includes only the fields NATS accepts for an NKEY identity
+        (``nkey:`` + ``permissions:``); the worker name lives in a
+        leading comment so operators can grep for it.
+        """
 
         return dedent(
             f"""\
-            {{ user: "{self.nats_user_name}", nkey: "{self.public_key}",
+            # {_NAME_PREFIX}{self.name}
+            {{ nkey: "{self.public_key}",
               permissions: {{
                 publish: {{
                   allow: [
@@ -61,6 +68,12 @@ class WorkerIdentity:
                     "{self.reply_subject_glob}",
                   ],
                 }},
+                # NATS request/reply uses a temporary _INBOX.>
+                # subject for the reply. allow_responses grants the
+                # worker a one-shot publish permission on it when it
+                # answers a Praetor request — without this,
+                # msg.respond() is silently dropped.
+                allow_responses: true,
               }},
             }}"""
         )
@@ -71,7 +84,6 @@ class WorkerIdentity:
             CAESAR_BUS__ENABLED=true
             CAESAR_BUS__URL=nats://<praetor-host>:4222
             CAESAR_BUS__AUTH__ENABLED=true
-            CAESAR_BUS__AUTH__USER={self.nats_user_name}
             CAESAR_BUS__AUTH__NKEY_SEED_PATH=/etc/caesar/{self.name}.nkey"""
         )
 
