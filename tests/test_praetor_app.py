@@ -148,18 +148,16 @@ async def test_lifespan_starts_and_stops_retention_sweeper(
 
     from caesar.memory.retention import RetentionSweeper
 
-    app = create_app(
-        settings=_settings_with_key(db_url), gateway=fake_gateway, engine=engine
-    )
+    app = create_app(settings=_settings_with_key(db_url), gateway=fake_gateway, engine=engine)
     sweeper: RetentionSweeper = app.state.sweeper
 
     task_running_during = False
     async with app.router.lifespan_context(app):
-        task_running_during = sweeper._task is not None
-    task_running_after = sweeper._task is not None
+        task_running_during = sweeper.is_running
+    task_running_after = sweeper.is_running
 
-    assert task_running_during is True
-    assert task_running_after is False
+    assert task_running_during
+    assert not task_running_after
 
     out = capsys.readouterr().out
     assert "memory.sweep.started" in out

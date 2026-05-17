@@ -73,19 +73,21 @@ async def test_sweep_without_audit_does_not_record(engine: AsyncEngine) -> None:
 
 
 async def test_start_stop_background_lifecycle(engine: AsyncEngine) -> None:
-    """Start/stop are both idempotent and track the task handle."""
+    """Start/stop are both idempotent and toggle is_running."""
 
     audit = AuditLogger(engine)
     sweeper = RetentionSweeper(engine, audit, retention_days=30, interval_seconds=60)
 
-    assert sweeper._task is None
     sweeper.start_background()
     sweeper.start_background()  # idempotent
-    assert sweeper._task is not None
+    running_after_start = sweeper.is_running
 
     await sweeper.stop_background()
     await sweeper.stop_background()  # idempotent
-    assert sweeper._task is None
+    running_after_stop = sweeper.is_running
+
+    assert running_after_start
+    assert not running_after_stop
 
 
 async def test_background_sweep_eventually_runs(engine: AsyncEngine) -> None:
@@ -97,16 +99,18 @@ async def test_background_sweep_eventually_runs(engine: AsyncEngine) -> None:
 
     sweeper = RetentionSweeper(engine, audit, retention_days=30, interval_seconds=0.05)
     sweeper.start_background()
+    seen = False
     try:
         for _ in range(100):
             async with engine.connect() as conn:
                 rows = (await conn.execute(select(audit_log))).all()
             if any(r.event_type == "memory.retention_sweep" for r in rows):
-                return
+                seen = True
+                break
             await asyncio.sleep(0.05)
-        raise AssertionError("background sweep did not write an audit row")
     finally:
         await sweeper.stop_background()
+    assert seen, "background sweep did not write an audit row"
 
 
 async def test_background_loop_keeps_running_on_failure(

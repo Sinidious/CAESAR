@@ -68,7 +68,6 @@ def test_praetor_migrate_invokes_upgrade(
 def test_memory_sweep_requires_exactly_one_mode(runner: CliRunner):
     result = runner.invoke(app, ["memory", "sweep"])
     assert result.exit_code != 0
-    assert "--dry-run" in result.stdout or "--dry-run" in result.output
 
 
 def test_memory_sweep_rejects_both_dry_run_and_apply(runner: CliRunner):

@@ -101,6 +101,12 @@ class RetentionSweeper:
     def interval_seconds(self) -> float:
         return self._interval_seconds
 
+    @property
+    def is_running(self) -> bool:
+        """Whether the background loop is currently scheduled."""
+
+        return self._task is not None
+
     async def sweep(self) -> SweepResult:
         """Run one sweep pass synchronously."""
 
