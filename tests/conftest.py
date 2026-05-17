@@ -261,3 +261,31 @@ def _reset_settings_cache() -> Iterator[None]:
     reset_settings_cache()
     yield
     reset_settings_cache()
+
+
+@pytest.fixture(autouse=True)
+def _reset_logging() -> Iterator[None]:
+    """Clear structlog + stdlib logging handlers between tests.
+
+    Without this, configure_logging() in one test binds a handler to
+    pytest's captured sys.stdout; the next test's capsys closes that
+    buffer, and any lingering log emission (lifespan shutdown logs
+    fired by a background task) writes to a closed file. That shows
+    up as 'I/O operation on closed file' warnings that pytest's
+    filterwarnings=error promotes to failures.
+    """
+
+    import logging
+
+    import structlog
+
+    yield
+    structlog.reset_defaults()
+    structlog.contextvars.clear_contextvars()
+    root = logging.getLogger()
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:  # noqa: BLE001 - best-effort cleanup
+            pass
