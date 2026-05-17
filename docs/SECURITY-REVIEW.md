@@ -75,7 +75,7 @@ know?".
 | ID     | Severity | Title                                                                  | Status | Closed by |
 | ------ | -------- | ---------------------------------------------------------------------- | ------ | --------- |
 | SR-001 | Medium   | `/v1/chat` and `/v1/devices/*` have no auth; bind defaults to 0.0.0.0  | Mitigated | Loopback default (this branch) |
-| SR-002 | Medium   | `/dashboard/login` has no rate-limit or lockout                         | Open   |           |
+| SR-002 | Medium   | `/dashboard/login` has no rate-limit or lockout                         | Closed | In-memory sliding-window limiter (this branch) |
 | SR-003 | Medium   | `/metrics` is unauthenticated and exposes worker/event-type cardinality | Open   |           |
 | SR-004 | Medium   | Tool-result strings re-enter the LLM as user content (prompt-injection)| Open   |           |
 | SR-005 | Medium   | Allow-list policy does not constrain `target` / `data` parameters       | Open   |           |
@@ -114,14 +114,24 @@ expose Praetor on the LAN. Tracked as a separate row when raised.
 
 ### SR-002 — `/dashboard/login` has no rate-limit
 
-An attacker on the LAN can brute-force the dashboard token. The
-token space is large if the operator picked a real secret, but
-short / dictionary tokens (which the rule "any non-empty string"
-permits) are easy targets.
+**Status: Closed.**
 
-Mitigation: rate-limit per-IP at 5 attempts / 5 minutes, or lock
-the account for N seconds after K failures. Either way the
-implementation is light (an in-memory leaky bucket on the route).
+An attacker on the LAN could previously brute-force the dashboard
+token. The token space is large if the operator picked a real
+secret, but short / dictionary tokens (which "any non-empty
+string" permits) were easy targets.
+
+A sliding-window failure counter now lives on
+`app.state.login_rate_limiter` (see
+[`rate_limit.py`](https://github.com/Sinidious/CAESAR/blob/main/caesar/praetor/dashboard/rate_limit.py)).
+The default is **5 failures / 5 minutes per source IP**; the 6th
+attempt returns HTTP 429 with a `Retry-After` header pointing at
+the oldest in-window failure's expiry. Successful logins do
+*not* consume the bucket.
+
+Storage is in-memory (process-local). A restart resets all
+buckets — acceptable for the homelab single-process deployment;
+the limiter migrates to the DB if Praetor ever runs multi-process.
 
 ### SR-003 — Unauthenticated `/metrics`
 
