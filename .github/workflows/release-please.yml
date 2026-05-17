@@ -14,5 +14,13 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v5
         with:
+          # Use a fine-scoped PAT instead of GITHUB_TOKEN so the
+          # release PR's downstream workflows (lint / test / typecheck)
+          # fire automatically. GitHub's anti-recursion rule blocks
+          # workflow triggers from GITHUB_TOKEN-authored events; a PAT
+          # bypasses that and is the documented release-please workflow.
+          # Falls back to GITHUB_TOKEN when the secret is not set so
+          # contributor forks don't break.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
