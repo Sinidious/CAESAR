@@ -160,6 +160,19 @@ class SemanticSettings(BaseModel):
     top_k_max: int = 50
 
 
+class MetricsSettings(BaseModel):
+    """Prometheus ``/metrics`` exposition configuration.
+
+    When ``token`` is set, scrapes must present
+    ``Authorization: Bearer <token>``. When unset, the endpoint is
+    open — relying on the loopback bind default ([ADR-0023] /
+    SR-001) and the operator's reverse-proxy posture to keep it from
+    the LAN. See SECURITY-REVIEW.md gap SR-003.
+    """
+
+    token: SecretStr | None = None
+
+
 class LegionSettings(BaseModel):
     """Legion worker configuration (ADR-0009 + ADR-0010).
 
@@ -197,6 +210,7 @@ class CaesarSettings(BaseSettings):
     memory: MemorySettings = Field(default_factory=MemorySettings)
     semantic: SemanticSettings = Field(default_factory=SemanticSettings)
     dashboard: DashboardSettings = Field(default_factory=DashboardSettings)
+    metrics: MetricsSettings = Field(default_factory=MetricsSettings)
 
 
 @lru_cache(maxsize=1)

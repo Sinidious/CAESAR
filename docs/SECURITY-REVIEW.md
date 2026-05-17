@@ -76,7 +76,7 @@ know?".
 | ------ | -------- | ---------------------------------------------------------------------- | ------ | --------- |
 | SR-001 | Medium   | `/v1/chat` and `/v1/devices/*` have no auth; bind defaults to 0.0.0.0  | Mitigated | Loopback default (this branch) |
 | SR-002 | Medium   | `/dashboard/login` has no rate-limit or lockout                         | Closed | In-memory sliding-window limiter (this branch) |
-| SR-003 | Medium   | `/metrics` is unauthenticated and exposes worker/event-type cardinality | Open   |           |
+| SR-003 | Medium   | `/metrics` is unauthenticated and exposes worker/event-type cardinality | Closed | Optional bearer-token + loopback-default (this branch) |
 | SR-004 | Medium   | Tool-result strings re-enter the LLM as user content (prompt-injection)| Mitigated | Always-on safety preamble + verified `tool_result` block channel (this branch) |
 | SR-005 | Medium   | Allow-list policy does not constrain `target` / `data` parameters       | Mitigated | `entity_id` constraints (this branch); other target fields + `data` deferred |
 | SR-006 | Low      | Dashboard cookie is signed by the same key it authenticates             | Closed | HMAC-derived signing key + optional separate `signing_key` (this branch) |
@@ -135,16 +135,21 @@ the limiter migrates to the DB if Praetor ever runs multi-process.
 
 ### SR-003 — Unauthenticated `/metrics`
 
-The endpoint is intentionally unauth'd
-([metrics.py](https://github.com/Sinidious/CAESAR/blob/main/caesar/praetor/routes/metrics.py))
-to make Prometheus scraping easy. The values themselves are not
-secret, but the metric *labels* reveal the set of audit event
-types, the count of registered workers, and whether the semantic
-indexer is alive — useful for an attacker probing the install.
+**Status: Closed.**
 
-Mitigation: optionally require a bearer token (e.g.
-`CAESAR_METRICS__TOKEN`) and document the same loopback default
-as SR-001. Or simply tie scrape to a per-IP allow-list.
+Two layers now cover the endpoint:
+
+1. **Loopback bind** (SR-001). A fresh install binds `127.0.0.1`,
+   so `/metrics` is unreachable from the LAN by default.
+2. **Optional bearer auth.** When
+   `CAESAR_METRICS__TOKEN` is set, scrapes must present
+   `Authorization: Bearer <token>` (case-insensitive, constant-time
+   compare). Operators deliberately exposing Praetor on the LAN
+   should set the token; loopback-only operators can leave it
+   unset.
+
+Configure Prometheus's scrape job with `bearer_token` or
+`bearer_token_file` to match.
 
 ### SR-004 — Tool-result re-injection
 
