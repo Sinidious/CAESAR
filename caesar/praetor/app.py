@@ -24,6 +24,7 @@ from caesar.legion.calculator import CalculatorWorker
 from caesar.legion.memory_recall import MemoryRecallWorker
 from caesar.legion.registry import WorkerRegistry
 from caesar.legion.semantic_recall import SemanticRecallWorker
+from caesar.legion.web_search import WebSearchClient, WebSearchWorker
 from caesar.legion.worker import Worker
 from caesar.llm.anthropic import AnthropicProvider
 from caesar.llm.embeddings import Embedder, StubEmbedder, VoyageEmbedder
@@ -197,6 +198,17 @@ def _build_inprocess_worker(
         )
     if name == "calculator":
         return CalculatorWorker(bus)
+    if name == "web_search":
+        client = WebSearchClient(
+            searxng_url=settings.tools.web_search.searxng_url,
+            timeout_seconds=settings.tools.web_search.timeout_seconds,
+        )
+        return WebSearchWorker(
+            bus,
+            client,
+            default_limit=settings.tools.web_search.result_limit,
+            max_limit=settings.tools.web_search.max_result_limit,
+        )
     raise ValueError(f"unknown in-process worker: {name!r}")
 
 

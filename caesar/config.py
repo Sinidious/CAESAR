@@ -274,6 +274,27 @@ class LegionSettings(BaseModel):
     recall_max_limit: int = 100
 
 
+class WebSearchToolSettings(BaseModel):
+    """SearXNG-backed ``web_search`` worker configuration (ADR-0028).
+
+    Operator runs the SearXNG instance themselves (CAESAR is a client,
+    not a search engine). ``searxng_url`` defaults to localhost so a
+    single-host deployment "just works" once the operator launches
+    SearXNG with its JSON output format enabled.
+    """
+
+    searxng_url: str = "http://localhost:8888"
+    result_limit: int = 5
+    max_result_limit: int = 25
+    timeout_seconds: float = 10.0
+
+
+class ToolsSettings(BaseModel):
+    """Per-tool worker configuration (ADR-0028)."""
+
+    web_search: WebSearchToolSettings = Field(default_factory=WebSearchToolSettings)
+
+
 class CaesarSettings(BaseSettings):
     """Top-level settings; all subsystems read through this."""
 
@@ -297,6 +318,7 @@ class CaesarSettings(BaseSettings):
     semantic: SemanticSettings = Field(default_factory=SemanticSettings)
     dashboard: DashboardSettings = Field(default_factory=DashboardSettings)
     metrics: MetricsSettings = Field(default_factory=MetricsSettings)
+    tools: ToolsSettings = Field(default_factory=ToolsSettings)
 
 
 @lru_cache(maxsize=1)
