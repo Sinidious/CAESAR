@@ -48,3 +48,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0020 | [Episodic memory retention via time-based TTL](0020-memory-retention-ttl.md) | Accepted |
 | 0021 | [Dashboard: server-rendered HTMX, SSE, single-token auth](0021-dashboard-htmx.md) | Accepted |
 | 0022 | [Backup and restore via SQLite Online Backup API](0022-backup-restore.md) | Accepted |
+| 0023 | [OpenTelemetry tracing as an opt-in extra](0023-opentelemetry-tracing.md) | Accepted |

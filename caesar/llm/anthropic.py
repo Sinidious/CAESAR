@@ -22,6 +22,7 @@ from caesar.llm.gateway import (
     ToolDefinition,
     ToolUse,
 )
+from caesar.tracing import llm_span, set_token_usage
 
 
 def _message_to_anthropic(msg: ChatMessage) -> dict[str, Any]:
@@ -108,13 +109,19 @@ class AnthropicProvider:
                 for t in tools
             ]
 
-        resp = await self._client.messages.create(
-            model=used_model,
-            max_tokens=used_max_tokens,
-            system=system_arg,  # type: ignore[arg-type]
-            messages=chat_messages,  # type: ignore[arg-type]
-            tools=tools_arg,
-        )
+        with llm_span(used_model, **{"gen_ai.request.max_tokens": used_max_tokens}) as sp:
+            resp = await self._client.messages.create(
+                model=used_model,
+                max_tokens=used_max_tokens,
+                system=system_arg,  # type: ignore[arg-type]
+                messages=chat_messages,  # type: ignore[arg-type]
+                tools=tools_arg,
+            )
+            set_token_usage(
+                sp,
+                input_tokens=resp.usage.input_tokens,
+                output_tokens=resp.usage.output_tokens,
+            )
 
         text_parts: list[str] = []
         tool_uses: list[ToolUse] = []

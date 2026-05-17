@@ -40,6 +40,7 @@ from caesar.praetor.dashboard.routes import STATIC_DIR as DASHBOARD_STATIC_DIR
 from caesar.praetor.middleware import request_id_middleware
 from caesar.praetor.routes import chat, devices, health
 from caesar.praetor.routes import metrics as metrics_route
+from caesar.tracing import setup_tracing, shutdown_tracing
 
 
 def _default_gateway(settings: CaesarSettings) -> LLMGateway:
@@ -194,6 +195,7 @@ def create_app(
         if semantic_indexer is not None:
             semantic_indexer.start_background()
         app.state.metrics_collector = register_app_collector(app)
+        app.state.tracing_provider = setup_tracing(app, engine)
         logger.info(
             "praetor.startup",
             version=__version__,
@@ -219,6 +221,7 @@ def create_app(
                 await bus.close()
             if ha is not None:
                 await ha.aclose()
+            shutdown_tracing(getattr(app.state, "tracing_provider", None))
             await engine.dispose()
             collector = getattr(app.state, "metrics_collector", None)
             if collector is not None:
