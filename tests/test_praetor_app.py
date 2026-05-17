@@ -96,6 +96,65 @@ def test_create_app_with_broken_rules_path_raises(db_url: str, tmp_path):
         create_app(settings=settings)
 
 
+def test_create_app_without_bus_leaves_bus_and_registry_none(db_url: str):
+    """Default settings have bus.enabled=False; no bus or registry attached."""
+
+    app = create_app(settings=_settings_with_key(db_url))
+    assert app.state.bus is None
+    assert app.state.registry is None
+
+
+def test_create_app_with_bus_enabled_constructs_bus(db_url: str):
+    """When CAESAR_BUS__ENABLED=true, a Bus is constructed (but not yet connected)."""
+
+    from caesar.bus.client import Bus
+    from caesar.config import BusSettings
+    from caesar.legion.registry import WorkerRegistry
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        bus=BusSettings(enabled=True, url="nats://127.0.0.1:1"),
+    )
+    app = create_app(settings=settings)
+    assert isinstance(app.state.bus, Bus)
+    assert isinstance(app.state.registry, WorkerRegistry)
+
+
+async def test_lifespan_connects_and_disconnects_bus(
+    nats_url: str, db_url: str, fake_gateway, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Lifespan should connect the bus on startup and close it on shutdown."""
+
+    from caesar.bus.client import Bus
+    from caesar.config import BusSettings, DatabaseSettings, LogSettings
+    from caesar.db.engine import create_engine
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        bus=BusSettings(enabled=True, url=nats_url),
+    )
+    eng = create_engine(db_url)
+    app = create_app(settings=settings, gateway=fake_gateway, engine=eng)
+    bus: Bus = app.state.bus
+
+    before = bus.is_connected
+    async with app.router.lifespan_context(app):
+        during = bus.is_connected
+    after = bus.is_connected
+
+    assert before is False
+    assert during is True
+    assert after is False
+
+    out = capsys.readouterr().out
+    assert "bus_enabled" in out
+    assert "praetor.shutdown" in out
+
+
 async def test_lifespan_runs_startup_and_shutdown(
     db_url: str,
     fake_gateway,

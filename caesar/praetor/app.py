@@ -13,10 +13,12 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from caesar import __version__
+from caesar.bus.client import Bus
 from caesar.config import CaesarSettings, get_settings
 from caesar.db.audit import AuditLogger
 from caesar.db.engine import create_engine
 from caesar.ha.client import HAClient
+from caesar.legion.registry import WorkerRegistry
 from caesar.llm.anthropic import AnthropicProvider
 from caesar.llm.gateway import LLMGateway
 from caesar.log import configure_logging, get_logger
@@ -50,6 +52,14 @@ def _default_ha(settings: CaesarSettings) -> HAClient | None:
     )
 
 
+def _default_bus(settings: CaesarSettings) -> Bus | None:
+    """Construct the Bus when CAESAR_BUS__ENABLED is true; else ``None``."""
+
+    if not settings.bus.enabled:
+        return None
+    return Bus(settings.bus.url, connect_timeout=settings.bus.connect_timeout)
+
+
 def _default_policy(settings: CaesarSettings) -> Policy:
     """Build the configured Policy, or fall back to the deny-all stub.
 
@@ -71,6 +81,7 @@ def create_app(
     engine: AsyncEngine | None = None,
     ha: HAClient | None = None,
     policy: Policy | None = None,
+    bus: Bus | None = None,
 ) -> FastAPI:
     """Build a Praetor FastAPI app, optionally with injected collaborators."""
 
@@ -82,20 +93,31 @@ def create_app(
     gateway = gateway if gateway is not None else _default_gateway(settings)
     ha = ha if ha is not None else _default_ha(settings)
     policy = policy if policy is not None else _default_policy(settings)
+    bus = bus if bus is not None else _default_bus(settings)
+    registry = WorkerRegistry(bus) if bus is not None else None
     audit = AuditLogger(engine)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        if bus is not None:
+            await bus.connect()
+        if registry is not None:
+            await registry.start()
         logger.info(
             "praetor.startup",
             version=__version__,
             model=settings.llm.model,
             ha_configured=ha is not None,
             policy=type(policy).__name__,
+            bus_enabled=bus is not None,
         )
         try:
             yield
         finally:
+            if registry is not None:
+                await registry.stop()
+            if bus is not None:
+                await bus.close()
             if ha is not None:
                 await ha.aclose()
             await engine.dispose()
@@ -112,6 +134,8 @@ def create_app(
     app.state.ha = ha
     app.state.policy = policy
     app.state.audit = audit
+    app.state.bus = bus
+    app.state.registry = registry
 
     app.middleware("http")(request_id_middleware)
     app.include_router(health.router)

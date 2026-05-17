@@ -75,6 +75,22 @@ class PolicySettings(BaseModel):
     rules_path: Path | None = None
 
 
+class BusSettings(BaseModel):
+    """Message-bus (NATS) configuration (ADR-0009).
+
+    Disabled by default — Praetor runs fine without NATS for the chat
+    and devices paths. Enable it when you want to bring up the Legion
+    worker pool (set ``CAESAR_BUS__ENABLED=true`` and point ``url`` at
+    your nats-server). v0.3 ships single-node localhost only; auth is
+    a later milestone.
+    """
+
+    enabled: bool = False
+    url: str = "nats://127.0.0.1:4222"
+    connect_timeout: float = 5.0
+    request_timeout: float = 5.0
+
+
 class CaesarSettings(BaseSettings):
     """Top-level settings; all subsystems read through this."""
 
@@ -92,6 +108,7 @@ class CaesarSettings(BaseSettings):
     server: ServerSettings = Field(default_factory=ServerSettings)
     ha: HASettings = Field(default_factory=HASettings)
     policy: PolicySettings = Field(default_factory=PolicySettings)
+    bus: BusSettings = Field(default_factory=BusSettings)
 
 
 @lru_cache(maxsize=1)
