@@ -94,6 +94,33 @@ each. ADR-0026 covers the design.
 - [x] Docs: ["How to pick a model"](PICKING-A-MODEL.md) page with
       cost/latency/privacy trade-offs.
 
+## v1.2 — Legion across hosts
+
+**Question:** Can a worker run on a different box and CAESAR still
+treats it like a first-class member of the pool?
+
+The Legion bus has been NATS since [ADR-0009](adr/0009-message-bus-nats.md)
+but v0.3 onward shipped single-node localhost only; no auth, no TLS,
+no story for "worker on the GPU box, brain on the NUC". v1.2 makes
+that real with NKEY-per-identity NATS auth, scoped subject
+permissions, and an opt-in path that preserves the existing
+single-host posture for operators who don't want to deal with it.
+ADR-0027 covers the design (and closes SR-009 in the process).
+
+- [ ] ADR-0027: NKEY-per-identity NATS auth; subject scoping per
+      identity; TLS-optional posture; opt-in `CAESAR_BUS__AUTH__*`
+      env vars; backward-compat with current no-auth deployments.
+- [ ] Configurable NATS auth in the `caesar.bus.client.Bus`
+      wrapper: NKEY seed + JWT or static credentials file.
+- [ ] Per-identity subject permissions documented (operator-curated
+      nats-server.conf snippet shipped under `examples/`).
+- [ ] Worker bootstrap script / docs: how to provision a new
+      worker on a fresh machine.
+- [ ] End-to-end test: two-process worker registers and answers a
+      dispatch over an authed bus. Gated when nats-server is on
+      `PATH` (same pattern as the existing bus tests).
+- [ ] Docs: "Run a worker on another box" page.
+
 ## Out of scope (for now)
 
 - Mobile native apps (the dashboard will be installable PWA first).

@@ -105,6 +105,7 @@ nav:
       - "0024 — Documentation site": adr/0024-docs-site-mkdocs.md
       - "0025 — Security review process": adr/0025-security-review.md
       - "0026 — Multi-provider LLM gateway": adr/0026-multi-provider-llm-gateway.md
+      - "0027 — NATS auth and multi-host Legion": adr/0027-nats-auth-multihost-legion.md
 
 validation:
   omitted_files: warn
