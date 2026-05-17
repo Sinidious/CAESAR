@@ -49,9 +49,7 @@ def _tool_definitions_to_ollama(tools: list[ToolDefinition]) -> list[dict[str, A
     ]
 
 
-def _messages_to_ollama(
-    messages: list[ChatMessage], *, system: str | None
-) -> list[dict[str, Any]]:
+def _messages_to_ollama(messages: list[ChatMessage], *, system: str | None) -> list[dict[str, Any]]:
     """Translate ChatMessage list into Ollama's chat wire shape.
 
     System content is hoisted to a leading ``role="system"`` message.
@@ -192,9 +190,8 @@ class OllamaProvider:
                     "arguments": getattr(func, "arguments", {}),
                 }
             call_id = (
-                (call.get("id") if isinstance(call, dict) else getattr(call, "id", None))
-                or f"ollama_tc_{index}"
-            )
+                call.get("id") if isinstance(call, dict) else getattr(call, "id", None)
+            ) or f"ollama_tc_{index}"
             tool_uses.append(
                 ToolUse(
                     id=str(call_id),
