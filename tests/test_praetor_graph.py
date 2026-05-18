@@ -937,6 +937,103 @@ async def test_calendar_read_dispatch_returns_events_to_llm(
     assert "Standup" in tool_result.content
 
 
+async def test_notify_tool_registered_when_capability_present(
+    fake_gateway: FakeGateway, engine: AsyncEngine
+) -> None:
+    """notify shows up in the LLM tool list only when a worker advertises
+    ``tool.notify`` — the brain doesn't offer it on bare installs."""
+
+    from caesar.policy.yaml_loader import AllowedToolRule
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(capabilities=["tool.notify"])
+    policy = AllowlistPolicy(
+        RulesConfig(
+            version=1,
+            allowed_services=[],
+            allowed_tools=[AllowedToolRule(tool="notify")],
+        )
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=policy,
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="say hi")],
+            "decision_id": "d-notify-1",
+            "iteration": 0,
+        }
+    )
+    tools = fake_gateway.calls[0]["tools"] or []
+    assert any(t.name == "notify" for t in tools)
+
+
+async def test_notify_dispatch_success_path(fake_gateway: FakeGateway, engine: AsyncEngine) -> None:
+    """The brain dispatches notify via _handle_generic_tool, the ntfy
+    delivery id comes back to the LLM, and the call is audit-logged."""
+
+    from caesar.policy.yaml_loader import AllowedToolRule
+
+    audit = AuditLogger(engine)
+    registry = _FakeRegistry(
+        capabilities=["tool.notify"],
+        dispatch_result={
+            "id": "msg-42",
+            "delivered_at": "2026-05-17T12:00:00+00:00",
+        },
+    )
+    fake_gateway.queue(
+        ChatResponse(
+            content="",
+            model="fake-model",
+            input_tokens=1,
+            output_tokens=2,
+            stop_reason="tool_use",
+            tool_uses=[
+                ToolUse(
+                    id="tu_notify",
+                    name="notify",
+                    input={"title": "Morning brief", "message": "All clear."},
+                ),
+            ],
+        )
+    )
+    fake_gateway.queue(
+        ChatResponse(content="Notified.", model="fake-model", input_tokens=3, output_tokens=4)
+    )
+    policy = AllowlistPolicy(
+        RulesConfig(
+            version=1,
+            allowed_services=[],
+            allowed_tools=[AllowedToolRule(tool="notify")],
+        )
+    )
+    graph = build_brain_graph(
+        gateway=fake_gateway,
+        ha=None,
+        policy=policy,
+        audit=audit,
+        registry=registry,  # type: ignore[arg-type]
+    )
+    await graph.ainvoke(
+        {
+            "messages": [ChatMessage(role="user", content="brief me")],
+            "decision_id": "d-notify-2",
+            "iteration": 0,
+        }
+    )
+    assert registry.dispatch_calls == [
+        ("tool.notify", {"title": "Morning brief", "message": "All clear."}),
+    ]
+    tool_result = fake_gateway.calls[1]["messages"][-1].tool_results[0]
+    assert tool_result.is_error is False
+    assert "msg-42" in tool_result.content
+
+
 async def test_iteration_cap_bails_out(
     fake_gateway: FakeGateway, engine: AsyncEngine, mock_ha: HAClient
 ) -> None:

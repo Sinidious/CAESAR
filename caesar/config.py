@@ -308,11 +308,29 @@ class CalendarToolSettings(BaseModel):
     max_range_days: int = 365
 
 
+class NotifyToolSettings(BaseModel):
+    """ntfy.sh-backed ``notify`` worker configuration (ADR-0030).
+
+    ``topic`` is required at worker construction time; the worker isn't
+    built when it's unset. ``base_url`` defaults to the public ntfy.sh
+    server; self-hosters point it at their own instance. ``token`` is
+    optional and only used when the operator's ntfy server requires
+    bearer auth.
+    """
+
+    topic: str = ""
+    base_url: str = "https://ntfy.sh"
+    token: SecretStr | None = None
+    default_priority: int = Field(default=3, ge=1, le=5)
+    timeout_seconds: float = 10.0
+
+
 class ToolsSettings(BaseModel):
     """Per-tool worker configuration (ADR-0028)."""
 
     web_search: WebSearchToolSettings = Field(default_factory=WebSearchToolSettings)
     calendar: CalendarToolSettings = Field(default_factory=CalendarToolSettings)
+    notify: NotifyToolSettings = Field(default_factory=NotifyToolSettings)
 
 
 class ProactiveSettings(BaseModel):
