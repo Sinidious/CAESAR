@@ -49,7 +49,12 @@ from caesar.praetor.dashboard.security_headers import dashboard_security_headers
 from caesar.praetor.middleware import request_id_middleware
 from caesar.praetor.routes import chat, devices, health, webhook
 from caesar.praetor.routes import metrics as metrics_route
-from caesar.proactive import HAEventDriver, Scheduler, load_triggers
+from caesar.proactive import (
+    HAEventDriver,
+    Scheduler,
+    WebhookDispatcher,
+    load_triggers,
+)
 from caesar.proactive.runner import ProactiveRunner
 from caesar.tracing import setup_tracing, shutdown_tracing
 
@@ -338,6 +343,7 @@ def create_app(
             semantic_indexer.start_background()
         scheduler: Scheduler | None = None
         ha_driver: HAEventDriver | None = None
+        webhook_dispatcher: WebhookDispatcher | None = None
         triggers_path = settings.proactive.resolved_path
         if triggers_path is not None:
             if (
@@ -379,11 +385,24 @@ def create_app(
                     await ha_driver.start()
                 else:
                     ha_driver = None
+            webhook_dispatcher = WebhookDispatcher(
+                triggers_config.triggers,
+                runner=runner,
+                audit=audit,
+            )
+            if webhook_dispatcher.armed_count > 0:
+                await webhook_dispatcher.announce()
+                app.state.webhook_dispatcher = webhook_dispatcher
+            else:
+                webhook_dispatcher = None
             logger.info(
                 "praetor.proactive_started",
                 triggers_path=str(triggers_path),
                 schedule_armed=scheduler.armed_count,
                 ha_armed=ha_driver.armed_count if ha_driver is not None else 0,
+                webhook_armed=(
+                    webhook_dispatcher.armed_count if webhook_dispatcher is not None else 0
+                ),
             )
         app.state.metrics_collector = register_app_collector(app)
         app.state.tracing_provider = setup_tracing(app, engine)
@@ -401,6 +420,9 @@ def create_app(
         try:
             yield
         finally:
+            if webhook_dispatcher is not None:
+                await webhook_dispatcher.stop()
+                app.state.webhook_dispatcher = None
             if ha_driver is not None:
                 await ha_driver.stop()
             if scheduler is not None:

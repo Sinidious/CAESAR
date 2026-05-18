@@ -559,7 +559,74 @@ async def test_lifespan_does_not_start_scheduler_when_path_unset(
     )
     # No proactive.schedules_path; lifespan must still come up + down.
     async with app.router.lifespan_context(app):
-        pass
+        # webhook dispatcher stays None — the route 404s any inbound.
+        assert app.state.webhook_dispatcher is None
+
+
+async def test_lifespan_wires_webhook_dispatcher_when_armed(
+    db_url: str, engine, fake_gateway, tmp_path
+) -> None:
+    """ADR-0032: armed webhook triggers ⇒ dispatcher populated on app.state."""
+
+    from pathlib import Path
+
+    from caesar.config import ProactiveSettings
+
+    triggers_path: Path = tmp_path / "triggers.yaml"
+    triggers_path.write_text(
+        "version: 1\n"
+        "triggers:\n"
+        "  - id: external_event\n"
+        "    enabled: true\n"
+        f'    bearer_token: "{"w" * 48}"\n'
+        "    prompt: brief me\n",
+        encoding="utf-8",
+    )
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        proactive=ProactiveSettings(triggers_path=triggers_path),
+    )
+    app = create_app(settings=settings, gateway=fake_gateway, engine=engine)
+    async with app.router.lifespan_context(app):
+        dispatcher = app.state.webhook_dispatcher
+        assert dispatcher is not None
+        assert dispatcher.armed_count == 1
+        assert dispatcher.get("external_event") is not None
+    # Lifespan finally clears it back out.
+    assert app.state.webhook_dispatcher is None
+
+
+async def test_lifespan_skips_webhook_dispatcher_when_no_armed_webhook(
+    db_url: str, engine, fake_gateway, tmp_path
+) -> None:
+    """All-disabled webhook triggers ⇒ dispatcher not constructed, route 404s."""
+
+    from pathlib import Path
+
+    from caesar.config import ProactiveSettings
+
+    triggers_path: Path = tmp_path / "triggers.yaml"
+    triggers_path.write_text(
+        "version: 1\n"
+        "triggers:\n"
+        "  - id: only_schedule\n"
+        "    enabled: true\n"
+        '    cron: "0 7 * * *"\n'
+        "    prompt: brief me\n",
+        encoding="utf-8",
+    )
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        proactive=ProactiveSettings(triggers_path=triggers_path),
+    )
+    app = create_app(settings=settings, gateway=fake_gateway, engine=engine)
+    async with app.router.lifespan_context(app):
+        # No webhook triggers in the file → dispatcher stays None.
+        assert app.state.webhook_dispatcher is None
 
 
 async def test_lifespan_cleanup_runs_even_when_ha_not_configured(

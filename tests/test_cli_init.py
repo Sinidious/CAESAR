@@ -128,12 +128,28 @@ def test_init_triggers_yaml_ships_disabled_examples(tmp_path: Path) -> None:
     config = yaml.safe_load(plan.triggers_path.read_text(encoding="utf-8"))
     assert config["version"] == 1
     rows = config.get("triggers") or []
-    # Both the schedule and HA-event examples; both disabled.
-    assert len(rows) >= 2
+    # Schedule + HA-event + webhook examples; all three disabled.
+    assert len(rows) >= 3
     assert all(row.get("enabled") is False for row in rows)
     ids = [row["id"] for row in rows]
     assert "morning_brief" in ids
     assert "late_office_motion" in ids
+    assert "external_event" in ids
+
+
+def test_init_webhook_trigger_has_fresh_bearer(tmp_path: Path) -> None:
+    """ADR-0032: each init mints a fresh bearer; two runs produce two tokens."""
+
+    a = init_workspace(tmp_path / "boxA")
+    b = init_workspace(tmp_path / "boxB")
+    config_a = yaml.safe_load(a.triggers_path.read_text(encoding="utf-8"))
+    config_b = yaml.safe_load(b.triggers_path.read_text(encoding="utf-8"))
+    webhook_a = next(r for r in config_a["triggers"] if r["id"] == "external_event")
+    webhook_b = next(r for r in config_b["triggers"] if r["id"] == "external_event")
+    # Fresh per install; never the same.
+    assert webhook_a["bearer_token"] != webhook_b["bearer_token"]
+    # ≥32 chars per ADR-0032's WebhookSource validation.
+    assert len(webhook_a["bearer_token"]) >= 32
 
 
 def test_init_policy_parses_and_allows_calculator_and_notify(tmp_path: Path) -> None:
