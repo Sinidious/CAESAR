@@ -149,6 +149,37 @@ becomes one tool id among many.
 - [x] Calendar-read worker: CalDAV against a homelab calendar.
 - [x] Docs: ["Add your own tool"](ADD-YOUR-OWN-TOOL.md) page.
 
+## v1.4 — Install in 10 minutes
+
+**Question:** Can someone who isn't me deploy CAESAR on a fresh
+NUC and have it running in 10 minutes?
+
+v1.0–v1.3 made CAESAR functionally rich. v1.4 makes it *adoptable*:
+a published Docker image, a reference Compose stack, and a
+`caesar init` command that generates a self-contained working
+config without making the operator hand-edit YAML. The bare-metal
+pip path keeps working for operators who want it. ADR-0029 covers
+the design.
+
+- [ ] ADR-0029: Docker + Compose distribution, `caesar init`
+      config-only generator, ghcr.io image naming, multi-arch
+      (amd64 + arm64), backward-compat with pip install.
+- [ ] `caesar init` command: writes `.env`, `policy.yaml`, a fresh
+      dashboard token, a Praetor NKEY (for the multi-host upgrade
+      path), and `./var/`. Idempotent; refuses to overwrite an
+      existing config without `--force`.
+- [ ] `Dockerfile` (multi-stage; runtime image is Python 3.11-slim
+      based; bakes the full default install including caldav and
+      both LLM SDKs).
+- [ ] `docker-compose.yml` reference stack: CAESAR + nats-server
+      with commented Ollama + SearXNG services for the
+      privacy-conscious operator.
+- [ ] GitHub Actions: build + push multi-arch image to
+      `ghcr.io/sinidious/caesar` on every release; the existing
+      Sigstore provenance attestation (SR-011) covers the image.
+- [ ] Docs: "Quickstart in 10 minutes" page wiring `caesar init`
+      → `docker compose up` → "open the dashboard" end-to-end.
+
 ## Out of scope (for now)
 
 - Mobile native apps (the dashboard will be installable PWA first).
