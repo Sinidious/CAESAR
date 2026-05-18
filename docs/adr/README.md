@@ -57,3 +57,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0029 | [Docker distribution + `caesar init` for 10-minute install](0029-docker-distribution-and-init.md) | Accepted |
 | 0030 | [Proactivity: scheduled triggers and ntfy.sh notifications](0030-proactivity-schedules-and-ntfy.md) | Accepted |
 | 0031 | [HA event triggers: subscribe, match, fire the brain](0031-ha-event-triggers.md) | Accepted |
+| 0032 | [Webhook triggers: third Trigger source variant](0032-webhook-triggers.md) | Accepted |
