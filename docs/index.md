@@ -9,6 +9,8 @@ Pre-alpha. Don't deploy this on anything you care about yet.
 
 ## Start here
 
+- [Quickstart in 10 minutes](QUICKSTART.md) — the literal happy
+  path from fresh box to talking to the brain.
 - [Architecture](ARCHITECTURE.md) — the moving parts and how they fit.
 - [Roadmap](ROADMAP.md) — what we're building, in order.
 - [Glossary](GLOSSARY.md) — Praetor, Legion, and every other term.

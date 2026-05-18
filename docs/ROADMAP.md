@@ -161,24 +161,25 @@ config without making the operator hand-edit YAML. The bare-metal
 pip path keeps working for operators who want it. ADR-0029 covers
 the design.
 
-- [ ] ADR-0029: Docker + Compose distribution, `caesar init`
+- [x] ADR-0029: Docker + Compose distribution, `caesar init`
       config-only generator, ghcr.io image naming, multi-arch
       (amd64 + arm64), backward-compat with pip install.
-- [ ] `caesar init` command: writes `.env`, `policy.yaml`, a fresh
+- [x] `caesar init` command: writes `.env`, `policy.yaml`, a fresh
       dashboard token, a Praetor NKEY (for the multi-host upgrade
       path), and `./var/`. Idempotent; refuses to overwrite an
       existing config without `--force`.
-- [ ] `Dockerfile` (multi-stage; runtime image is Python 3.11-slim
+- [x] `Dockerfile` (multi-stage; runtime image is Python 3.11-slim
       based; bakes the full default install including caldav and
       both LLM SDKs).
-- [ ] `docker-compose.yml` reference stack: CAESAR + nats-server
+- [x] `docker-compose.yml` reference stack: CAESAR + nats-server
       with commented Ollama + SearXNG services for the
       privacy-conscious operator.
-- [ ] GitHub Actions: build + push multi-arch image to
+- [x] GitHub Actions: build + push multi-arch image to
       `ghcr.io/sinidious/caesar` on every release; the existing
       Sigstore provenance attestation (SR-011) covers the image.
-- [ ] Docs: "Quickstart in 10 minutes" page wiring `caesar init`
-      → `docker compose up` → "open the dashboard" end-to-end.
+- [x] Docs: ["Quickstart in 10 minutes"](QUICKSTART.md) wiring
+      `caesar init` → `docker compose up` → "open the dashboard"
+      end-to-end.
 
 ## Out of scope (for now)
 
