@@ -275,3 +275,40 @@ def test_matcher_default_now_uses_wall_clock() -> None:
     # runs — proves the default-now path is exercised.
     src = _valid_ha_source(time_window="00:00-23:59", timezone="UTC")
     assert matches_ha_event(src, _state_event())
+
+
+# --- WebhookSource validation (ADR-0032) ----------------------------------
+
+
+def test_webhook_source_accepts_long_token() -> None:
+    from pydantic import SecretStr
+
+    from caesar.proactive.triggers import WebhookSource
+
+    src = WebhookSource(bearer_token=SecretStr("a" * 48))
+    assert src.kind == "webhook"
+    assert src.bearer_token.get_secret_value() == "a" * 48
+
+
+def test_webhook_source_rejects_short_token() -> None:
+    from pydantic import SecretStr
+
+    from caesar.proactive.triggers import WebhookSource
+
+    with pytest.raises(ValidationError, match="bearer_token must be at least"):
+        WebhookSource(bearer_token=SecretStr("a" * 16))
+
+
+def test_webhook_trigger_round_trips_through_discriminated_union() -> None:
+    """A Trigger with a WebhookSource round-trips through model_dump+validate."""
+
+    from pydantic import SecretStr
+
+    from caesar.proactive.triggers import WebhookSource
+
+    t = Trigger(
+        id="github_pr_opened",
+        prompt="brief me",
+        source=WebhookSource(bearer_token=SecretStr("w" * 48)),
+    )
+    assert t.source.kind == "webhook"

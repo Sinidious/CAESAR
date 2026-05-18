@@ -222,7 +222,66 @@ def test_load_rejects_mixed_source_fields_in_one_entry(tmp_path: Path) -> None:
             prompt: hi
         """,
     )
-    with pytest.raises(SchedulesError, match="mixes schedule fields"):
+    # v1.7 generalised the error message ("mixes source-kind fields") so
+    # all three variant pairs share one phrase.
+    with pytest.raises(SchedulesError, match="mixes source-kind fields"):
+        load_schedules(path)
+
+
+def test_load_flat_webhook_form(tmp_path: Path) -> None:
+    """Top-level bearer_token lifts under source.kind=webhook (ADR-0032)."""
+
+    from caesar.proactive.triggers import WebhookSource
+
+    path = _write(
+        tmp_path,
+        """
+        version: 1
+        triggers:
+          - id: n8n_calendar_invite
+            enabled: true
+            cooldown_seconds: 30
+            bearer_token: "wht_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            prompt: "summarise the event"
+        """,
+    )
+    config = load_schedules(path)
+    assert len(config.triggers) == 1
+    t = config.triggers[0]
+    assert t.cooldown_seconds == 30
+    assert isinstance(t.source, WebhookSource)
+    assert t.source.bearer_token.get_secret_value() == "wht_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+
+def test_load_rejects_mixing_cron_and_webhook(tmp_path: Path) -> None:
+    """`cron` + `bearer_token` in one entry is ambiguous; reject loudly."""
+
+    path = _write(
+        tmp_path,
+        """
+        triggers:
+          - id: ambiguous
+            cron: "0 7 * * *"
+            bearer_token: "wht_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            prompt: hi
+        """,
+    )
+    with pytest.raises(SchedulesError, match="mixes source-kind fields"):
+        load_schedules(path)
+
+
+def test_load_rejects_mixing_ha_event_and_webhook(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+        triggers:
+          - id: ambiguous
+            event_type: state_changed
+            bearer_token: "wht_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            prompt: hi
+        """,
+    )
+    with pytest.raises(SchedulesError, match="mixes source-kind fields"):
         load_schedules(path)
 
 
@@ -242,8 +301,12 @@ def test_load_promotes_timezone_into_ha_source(tmp_path: Path) -> None:
             prompt: hi
         """,
     )
+    from caesar.proactive.triggers import HASource
+
     config = load_schedules(path)
-    assert config.schedules[0].source.timezone == "America/New_York"
+    source = config.schedules[0].source
+    assert isinstance(source, HASource)
+    assert source.timezone == "America/New_York"
 
 
 def test_load_schedules_none_treated_as_empty(tmp_path: Path) -> None:
