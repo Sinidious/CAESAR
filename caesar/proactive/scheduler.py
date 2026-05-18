@@ -23,7 +23,7 @@ from croniter import croniter
 
 from caesar.db.audit import AuditLogger
 from caesar.log import get_logger
-from caesar.proactive.triggers import Trigger
+from caesar.proactive.triggers import ScheduleSource, Trigger
 
 logger = get_logger("caesar.proactive.scheduler")
 
@@ -48,8 +48,13 @@ def _now_utc() -> datetime:
 
 
 def _next_fire(trigger: Trigger, *, after: datetime) -> datetime:
-    """Compute the next fire time for ``trigger``, strictly after ``after``."""
+    """Compute the next fire time for ``trigger``, strictly after ``after``.
 
+    The caller is responsible for filtering to ScheduleSource triggers;
+    this assert narrows the union for mypy at the point of access.
+    """
+
+    assert isinstance(trigger.source, ScheduleSource)
     tz = ZoneInfo(trigger.source.timezone)
     base = after.astimezone(tz)
     itr = croniter(trigger.source.cron, base)
@@ -74,8 +79,13 @@ class Scheduler:
         self._time_provider = time_provider
         self._sleep = sleep
         now = self._time_provider()
+        # ADR-0031: HASource triggers are handled by HAEventDriver; the
+        # scheduler only arms ScheduleSource triggers, even if a mixed
+        # triggers.yaml is passed in.
         self._armed: list[_Armed] = [
-            _Armed(t, _next_fire(t, after=now)) for t in triggers if t.enabled
+            _Armed(t, _next_fire(t, after=now))
+            for t in triggers
+            if t.enabled and isinstance(t.source, ScheduleSource)
         ]
         self._task: asyncio.Task[None] | None = None
         self._stop = asyncio.Event()
@@ -96,6 +106,7 @@ class Scheduler:
         if self._audit is None:
             return
         for armed in self._armed:
+            assert isinstance(armed.trigger.source, ScheduleSource)
             await self._audit.record(
                 "trigger.scheduled",
                 {
