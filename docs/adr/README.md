@@ -54,3 +54,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0026 | [Multi-provider LLM gateway](0026-multi-provider-llm-gateway.md) | Accepted |
 | 0027 | [NATS auth and multi-host Legion](0027-nats-auth-multihost-legion.md) | Accepted |
 | 0028 | [Tools beyond HA: workers + generalised Policy Engine](0028-tools-beyond-ha.md) | Accepted |
+| 0029 | [Docker distribution + `caesar init` for 10-minute install](0029-docker-distribution-and-init.md) | Accepted |
