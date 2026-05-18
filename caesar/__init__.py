@@ -6,4 +6,4 @@ structured logging, persistence, the LLM gateway, and (later) the
 Legion of worker agents and HA bridge.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
