@@ -10,6 +10,7 @@ from __future__ import annotations
 from sqlalchemy import (
     JSON,
     DateTime,
+    Float,
     Integer,
     MetaData,
     String,
@@ -63,4 +64,41 @@ the indexer can re-run idempotently. Embedding is stored as a JSON
 array of floats; v0.4 ranks candidates with Python-side cosine. A
 later milestone will swap the search path to a vector-index extension
 without changing this schema.
+"""
+
+
+personal_facts = Table(
+    "personal_facts",
+    metadata,
+    C("id", Integer, primary_key=True, autoincrement=True),
+    C("key", String(128), nullable=False, unique=True, index=True),
+    C("value", String, nullable=False),
+    C("confidence", Float, nullable=False, default=1.0),
+    C("first_seen_at", DateTime(timezone=True), nullable=False),
+    C("last_confirmed_at", DateTime(timezone=True), nullable=False, index=True),
+    C("source_audit_id", Integer, nullable=True),
+)
+"""Operator-visible personal facts CAESAR has extracted (ADR-0033, v1.8).
+
+One row per distinct fact, keyed by a dot-namespaced identifier
+(``dog.name``, ``preference.coffee``, ``address.city``).
+``UNIQUE(key)`` means facts update in place: when the operator says
+"actually his name is Bowser", the row's ``value`` overwrites and
+``last_confirmed_at`` advances; the prior value lands in audit_log
+as a ``memory.fact.updated`` row so the change history is replayable.
+"""
+
+
+memory_extract_cursor = Table(
+    "memory_extract_cursor",
+    metadata,
+    C("id", Integer, primary_key=True),
+    C("last_audit_id", Integer, nullable=False, default=0),
+    C("updated_at", DateTime(timezone=True), nullable=False),
+)
+"""Cursor row for the v1.8 ``memory.extract`` worker (ADR-0033).
+
+Singleton row (``id=1``). Tracks the highest ``audit_log.id`` the
+extractor has already processed so a restart resumes where it left
+off without reprocessing every historical chat.
 """
