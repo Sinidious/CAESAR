@@ -49,6 +49,8 @@ from caesar.praetor.dashboard.security_headers import dashboard_security_headers
 from caesar.praetor.middleware import request_id_middleware
 from caesar.praetor.routes import chat, devices, health
 from caesar.praetor.routes import metrics as metrics_route
+from caesar.proactive import Scheduler, load_schedules
+from caesar.proactive.runner import ProactiveRunner
 from caesar.tracing import setup_tracing, shutdown_tracing
 
 
@@ -334,6 +336,30 @@ def create_app(
         sweeper.start_background()
         if semantic_indexer is not None:
             semantic_indexer.start_background()
+        scheduler: Scheduler | None = None
+        if settings.proactive.schedules_path is not None:
+            schedules = load_schedules(settings.proactive.schedules_path)
+            runner = ProactiveRunner(
+                gateway=gateway,
+                ha=ha,
+                policy=policy,
+                audit=audit,
+                registry=registry,
+                settings_store=settings_store,
+                default_model=settings.llm.model,
+                default_prompt=settings.llm.system_prompt,
+            )
+            scheduler = Scheduler(
+                schedules.schedules,
+                runner.fire,
+                audit=audit,
+            )
+            await scheduler.start()
+            logger.info(
+                "praetor.proactive_started",
+                schedules_path=str(settings.proactive.schedules_path),
+                armed_triggers=scheduler.armed_count,
+            )
         app.state.metrics_collector = register_app_collector(app)
         app.state.tracing_provider = setup_tracing(app, engine)
         logger.info(
@@ -350,6 +376,8 @@ def create_app(
         try:
             yield
         finally:
+            if scheduler is not None:
+                await scheduler.stop()
             if semantic_indexer is not None:
                 await semantic_indexer.stop_background()
             await sweeper.stop_background()

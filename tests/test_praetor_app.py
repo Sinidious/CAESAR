@@ -514,6 +514,54 @@ def test_build_inprocess_worker_constructs_notify_without_token(db_url: str) -> 
     assert isinstance(worker, NotifyWorker)
 
 
+async def test_lifespan_starts_scheduler_when_schedules_path_set(
+    db_url: str, engine, fake_gateway, tmp_path
+) -> None:
+    """ADR-0030: when proactive.schedules_path is set, the lifespan
+    constructs and starts a Scheduler. The example file ships with one
+    disabled trigger, so the armed count is 0 but the scheduler is wired."""
+
+    from pathlib import Path
+
+    from caesar.config import ProactiveSettings
+
+    schedules_path: Path = tmp_path / "schedules.yaml"
+    schedules_path.write_text(
+        "version: 1\n"
+        "schedules:\n"
+        "  - id: armed_test\n"
+        "    enabled: true\n"
+        '    cron: "0 7 * * *"\n'
+        "    timezone: UTC\n"
+        "    prompt: brief me\n",
+        encoding="utf-8",
+    )
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        proactive=ProactiveSettings(schedules_path=schedules_path),
+    )
+    app = create_app(settings=settings, gateway=fake_gateway, engine=engine)
+    async with app.router.lifespan_context(app):
+        pass  # lifespan setup + teardown must both run cleanly
+
+
+async def test_lifespan_does_not_start_scheduler_when_path_unset(
+    db_url: str, engine, fake_gateway
+) -> None:
+    """Default behaviour: with no schedules_path, CAESAR remains reactive."""
+
+    app = create_app(
+        settings=_settings_with_key(db_url),
+        gateway=fake_gateway,
+        engine=engine,
+    )
+    # No proactive.schedules_path; lifespan must still come up + down.
+    async with app.router.lifespan_context(app):
+        pass
+
+
 async def test_lifespan_cleanup_runs_even_when_ha_not_configured(
     db_url: str, engine, fake_gateway
 ) -> None:

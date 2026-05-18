@@ -25,6 +25,7 @@ from caesar.cli_init import (
     ENV_FILENAME,
     NKEY_FILENAME,
     POLICY_FILENAME,
+    SCHEDULES_FILENAME,
     VAR_DIRNAME,
     InitPlan,
     compute_plan,
@@ -40,8 +41,14 @@ def test_compute_plan_paths_are_under_target(tmp_path: Path) -> None:
     assert plan.env_path == tmp_path / ENV_FILENAME
     assert plan.policy_path == tmp_path / POLICY_FILENAME
     assert plan.nkey_path == tmp_path / NKEY_FILENAME
+    assert plan.schedules_path == tmp_path / SCHEDULES_FILENAME
     assert plan.var_dir == tmp_path / VAR_DIRNAME
-    assert plan.files == [plan.env_path, plan.policy_path, plan.nkey_path]
+    assert plan.files == [
+        plan.env_path,
+        plan.policy_path,
+        plan.nkey_path,
+        plan.schedules_path,
+    ]
 
 
 def test_existing_artifacts_lists_only_present_files(tmp_path: Path) -> None:
@@ -104,15 +111,39 @@ def test_init_env_anthropic_key_is_an_empty_placeholder(tmp_path: Path) -> None:
 # --- policy.yaml shape ------------------------------------------------------
 
 
-def test_init_policy_parses_and_allows_calculator_only(tmp_path: Path) -> None:
+def test_init_env_points_proactive_at_local_schedules_file(tmp_path: Path) -> None:
+    """ADR-0030: the generated .env tells Praetor where schedules.yaml is."""
+
+    env = init_workspace(tmp_path).env_path.read_text(encoding="utf-8")
+    assert f"CAESAR_PROACTIVE__SCHEDULES_PATH=./{SCHEDULES_FILENAME}" in env
+
+
+def test_init_schedules_yaml_ships_disabled_morning_brief(tmp_path: Path) -> None:
+    """The example schedule is disabled by default so operators who skip
+    the file (or skip editing it) see no surprise notifications."""
+
+    plan = init_workspace(tmp_path)
+    schedules = yaml.safe_load(plan.schedules_path.read_text(encoding="utf-8"))
+    assert schedules["version"] == 1
+    rows = schedules.get("schedules") or []
+    assert len(rows) >= 1
+    assert all(row.get("enabled") is False for row in rows)
+    # The first row is the morning_brief example.
+    assert rows[0]["id"] == "morning_brief"
+    assert "cron" in rows[0]
+
+
+def test_init_policy_parses_and_allows_calculator_and_notify(tmp_path: Path) -> None:
     plan = init_workspace(tmp_path)
     rules = yaml.safe_load(plan.policy_path.read_text(encoding="utf-8"))
     assert rules["version"] == 1
     # HA services are commented out — safe default, operator opts in.
     assert rules.get("allowed_services") in (None, [])
-    # Calculator is the only out-of-the-box tool; no creds needed.
+    # Calculator is safe out-of-the-box; notify is on the list so proactive
+    # runs (ADR-0030) can deliver without a follow-up policy edit, but the
+    # `notify` worker only constructs when CAESAR_TOOLS__NOTIFY__TOPIC is set.
     tools = rules.get("allowed_tools") or []
-    assert [t for t in tools if isinstance(t, str)] == ["calculator"]
+    assert [t for t in tools if isinstance(t, str)] == ["calculator", "notify"]
 
 
 # --- praetor.nkey -----------------------------------------------------------
@@ -181,6 +212,7 @@ def test_cli_init_runs_in_empty_dir(tmp_path: Path) -> None:
     assert (tmp_path / ENV_FILENAME).is_file()
     assert (tmp_path / POLICY_FILENAME).is_file()
     assert (tmp_path / NKEY_FILENAME).is_file()
+    assert (tmp_path / SCHEDULES_FILENAME).is_file()
     assert (tmp_path / VAR_DIRNAME).is_dir()
     assert "Next steps" in result.stdout
 
@@ -208,9 +240,15 @@ def test_init_plan_files_property_is_a_stable_list(tmp_path: Path) -> None:
         env_path=tmp_path / "a",
         policy_path=tmp_path / "b",
         nkey_path=tmp_path / "c",
+        schedules_path=tmp_path / "d",
         var_dir=tmp_path / "var",
     )
     files = plan.files
     files.append(tmp_path / "extra")
     # Mutating the snapshot shouldn't affect future calls.
-    assert plan.files == [tmp_path / "a", tmp_path / "b", tmp_path / "c"]
+    assert plan.files == [
+        tmp_path / "a",
+        tmp_path / "b",
+        tmp_path / "c",
+        tmp_path / "d",
+    ]
