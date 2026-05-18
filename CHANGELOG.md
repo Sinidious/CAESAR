@@ -9,6 +9,39 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from
 [Conventional Commits](https://www.conventionalcommits.org) on `main`.
 
+## [0.4.0](https://github.com/Sinidious/CAESAR/compare/v0.3.0...v0.4.0) (2026-05-18)
+
+
+### Features
+
+* **cli:** v1.4 — caesar init writes a working starter config (ADR-0029) ([#71](https://github.com/Sinidious/CAESAR/issues/71)) ([d76f5b3](https://github.com/Sinidious/CAESAR/commit/d76f5b31cee5021d8f0424efc62d04caf5858a0d))
+* **ha:** v1.6 — resilient HA event subscription (ADR-0031) ([#81](https://github.com/Sinidious/CAESAR/issues/81)) ([7f229ea](https://github.com/Sinidious/CAESAR/commit/7f229ea514f85075c4826c4b5f1e84731fb12b28))
+* **legion:** v1.3 — calculator worker (ADR-0028) ([#66](https://github.com/Sinidious/CAESAR/issues/66)) ([9fd48c5](https://github.com/Sinidious/CAESAR/commit/9fd48c55bf7787366f4616089470bc4e27d866e0))
+* **legion:** v1.3 — calendar-read worker via CalDAV (ADR-0028) ([#68](https://github.com/Sinidious/CAESAR/issues/68)) ([0332ee9](https://github.com/Sinidious/CAESAR/commit/0332ee90c67db793fc8fae7c27e88e3daa828757))
+* **legion:** v1.3 — web-search worker via SearXNG (ADR-0028) ([#67](https://github.com/Sinidious/CAESAR/issues/67)) ([ab761be](https://github.com/Sinidious/CAESAR/commit/ab761be96bf9e1f17b8ff8a446b8f438c070a04e))
+* **legion:** v1.5 — notify worker backed by ntfy.sh (ADR-0030) ([#77](https://github.com/Sinidious/CAESAR/issues/77)) ([a5c411d](https://github.com/Sinidious/CAESAR/commit/a5c411d2221c9b393884e7854b6d31750a1b9b05))
+* **policy:** v1.3 — generalise Policy Engine to ToolCall (ADR-0028) ([#64](https://github.com/Sinidious/CAESAR/issues/64)) ([c2bb418](https://github.com/Sinidious/CAESAR/commit/c2bb418576b644b5bf1882b3aec5a5f9febf471e))
+* **proactive:** v1.5 — end-to-end proactive flow (ADR-0030) ([#78](https://github.com/Sinidious/CAESAR/issues/78)) ([1fe306d](https://github.com/Sinidious/CAESAR/commit/1fe306d6f86a287349e16dd9f9ea55dcd4e38734))
+* **proactive:** v1.5 — scheduler + schedules.yaml (ADR-0030) ([#76](https://github.com/Sinidious/CAESAR/issues/76)) ([a59d428](https://github.com/Sinidious/CAESAR/commit/a59d4281c9ca9a70574323050a199987a3f4ba64))
+* **proactive:** v1.6 — HA event driver + triggers.yaml rename (ADR-0031) ([#83](https://github.com/Sinidious/CAESAR/issues/83)) ([56a25e5](https://github.com/Sinidious/CAESAR/commit/56a25e54394465b317c5b14b0341859b135827e6))
+* **proactive:** v1.6 — HASource trigger variant + matcher (ADR-0031) ([#82](https://github.com/Sinidious/CAESAR/issues/82)) ([3ad1495](https://github.com/Sinidious/CAESAR/commit/3ad1495f4fa96d53d9cc27c78a165cf943738cd2))
+
+
+### Documentation
+
+* plan v1.4 — install in 10 minutes (ADR-0029) ([#70](https://github.com/Sinidious/CAESAR/issues/70)) ([ce68aec](https://github.com/Sinidious/CAESAR/commit/ce68aec619c569fefcd5cd490a9f459dfecd0bb4))
+* plan v1.5 — proactivity (ADR-0030) ([#75](https://github.com/Sinidious/CAESAR/issues/75)) ([e12fc98](https://github.com/Sinidious/CAESAR/commit/e12fc98c6ae9e79ed65df6a3a751983faaec4f62))
+* plan v1.6 — HA event triggers (ADR-0031) ([#80](https://github.com/Sinidious/CAESAR/issues/80)) ([f63d440](https://github.com/Sinidious/CAESAR/commit/f63d440e0b74371ebd934f82922a4f0027faed07))
+* v1.3 — 'Add your own tool' page ([#69](https://github.com/Sinidious/CAESAR/issues/69)) ([fe1d0bc](https://github.com/Sinidious/CAESAR/commit/fe1d0bcfc1e9e8790a19575651118d95acb93b02))
+* v1.4 — quickstart in 10 minutes ([#74](https://github.com/Sinidious/CAESAR/issues/74)) ([915ba38](https://github.com/Sinidious/CAESAR/commit/915ba386229b8b7aec719b83a918ebd6dee1d336))
+* v1.5 — proactive CAESAR operator guide ([#79](https://github.com/Sinidious/CAESAR/issues/79)) ([2a2527b](https://github.com/Sinidious/CAESAR/commit/2a2527bcac6c5d1c22d7fc41e6753eec6974173c))
+* v1.6 — HA event triggers operator guide ([#84](https://github.com/Sinidious/CAESAR/issues/84)) ([be1f9cf](https://github.com/Sinidious/CAESAR/commit/be1f9cf717fdac0195cd105646a67e510015a262))
+
+
+### Build System
+
+* **docker:** v1.4 — multi-stage Dockerfile + reference compose stack (ADR-0029) ([#72](https://github.com/Sinidious/CAESAR/issues/72)) ([3befc06](https://github.com/Sinidious/CAESAR/commit/3befc061b9830b38c90382664c22c7d02fc5540d))
+
 ## [0.3.0](https://github.com/Sinidious/CAESAR/compare/v0.2.0...v0.3.0) (2026-05-17)
 
 
