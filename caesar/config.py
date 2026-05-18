@@ -315,6 +315,18 @@ class ToolsSettings(BaseModel):
     calendar: CalendarToolSettings = Field(default_factory=CalendarToolSettings)
 
 
+class ProactiveSettings(BaseModel):
+    """Proactive trigger configuration (ADR-0030).
+
+    Off by default: when ``schedules_path`` is unset, the scheduler
+    subsystem isn't constructed and CAESAR remains reactive-only.
+    When set, Praetor loads the file at lifespan start and arms every
+    ``enabled: true`` trigger inside it.
+    """
+
+    schedules_path: Path | None = None
+
+
 class CaesarSettings(BaseSettings):
     """Top-level settings; all subsystems read through this."""
 
@@ -339,6 +351,7 @@ class CaesarSettings(BaseSettings):
     dashboard: DashboardSettings = Field(default_factory=DashboardSettings)
     metrics: MetricsSettings = Field(default_factory=MetricsSettings)
     tools: ToolsSettings = Field(default_factory=ToolsSettings)
+    proactive: ProactiveSettings = Field(default_factory=ProactiveSettings)
 
 
 @lru_cache(maxsize=1)
