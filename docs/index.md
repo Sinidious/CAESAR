@@ -23,6 +23,9 @@ Pre-alpha. Don't deploy this on anything you care about yet.
   setup using NATS NKEY auth.
 - [Add your own tool](ADD-YOUR-OWN-TOOL.md) — write a Legion worker
   that the brain can call: capability, policy entry, tests.
+- [Proactive CAESAR](PROACTIVE-CAESAR.md) — schedule the brain to
+  start runs on its own and push notifications to your phone via
+  ntfy.sh.
 - [Picking a model](PICKING-A-MODEL.md) — Anthropic, OpenAI, or local
   Ollama, and how to mix-and-match per task.
 - [ADR index](adr/README.md) — every architecture decision so far.

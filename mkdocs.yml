@@ -75,6 +75,7 @@ nav:
   - Operations: OPERATIONS.md
   - Run a worker on another box: RUN-A-WORKER.md
   - Add your own tool: ADD-YOUR-OWN-TOOL.md
+  - Proactive CAESAR: PROACTIVE-CAESAR.md
   - Configuration: CONFIGURATION.md
   - Picking a model: PICKING-A-MODEL.md
   - Security model: SECURITY-MODEL.md
