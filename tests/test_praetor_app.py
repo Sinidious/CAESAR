@@ -440,6 +440,80 @@ def test_build_inprocess_worker_constructs_calendar_read_when_configured(db_url:
     assert isinstance(worker, CalendarReadWorker)
 
 
+def test_build_inprocess_worker_requires_notify_topic(db_url: str) -> None:
+    """notify without a topic fails fast at construction (ADR-0030)."""
+
+    from caesar.praetor.app import _build_inprocess_worker
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        # tools.notify.topic defaults to ""
+    )
+    with pytest.raises(ValueError, match="CAESAR_TOOLS__NOTIFY__TOPIC"):
+        _build_inprocess_worker(
+            "notify",
+            bus=None,  # type: ignore[arg-type]
+            engine=None,  # type: ignore[arg-type]
+            settings=settings,
+            embedder=None,
+        )
+
+
+def test_build_inprocess_worker_constructs_notify_when_configured(db_url: str) -> None:
+    """Full notify wiring: with topic set, the worker is built (ADR-0030)."""
+
+    from caesar.config import NotifyToolSettings, ToolsSettings
+    from caesar.legion.notify import NotifyWorker
+    from caesar.praetor.app import _build_inprocess_worker
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        tools=ToolsSettings(
+            notify=NotifyToolSettings(
+                topic="caesar-home",
+                base_url="https://ntfy.example/",
+                token=SecretStr("opaque"),
+                default_priority=4,
+            )
+        ),
+    )
+    worker = _build_inprocess_worker(
+        "notify",
+        bus=None,  # type: ignore[arg-type]
+        engine=None,  # type: ignore[arg-type]
+        settings=settings,
+        embedder=None,
+    )
+    assert isinstance(worker, NotifyWorker)
+
+
+def test_build_inprocess_worker_constructs_notify_without_token(db_url: str) -> None:
+    """notify with topic only (no token) is the public-server happy path."""
+
+    from caesar.config import NotifyToolSettings, ToolsSettings
+    from caesar.legion.notify import NotifyWorker
+    from caesar.praetor.app import _build_inprocess_worker
+
+    settings = CaesarSettings(
+        db=DatabaseSettings(url=db_url),
+        llm=LLMSettings(api_key=SecretStr("sk-test")),
+        log=LogSettings(format="console", level="DEBUG"),
+        tools=ToolsSettings(notify=NotifyToolSettings(topic="caesar-home")),
+    )
+    worker = _build_inprocess_worker(
+        "notify",
+        bus=None,  # type: ignore[arg-type]
+        engine=None,  # type: ignore[arg-type]
+        settings=settings,
+        embedder=None,
+    )
+    assert isinstance(worker, NotifyWorker)
+
+
 async def test_lifespan_cleanup_runs_even_when_ha_not_configured(
     db_url: str, engine, fake_gateway
 ) -> None:

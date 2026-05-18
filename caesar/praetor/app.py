@@ -23,6 +23,7 @@ from caesar.ha.client import HAClient
 from caesar.legion.calculator import CalculatorWorker
 from caesar.legion.calendar_read import CalDAVClient, CalendarReadWorker
 from caesar.legion.memory_recall import MemoryRecallWorker
+from caesar.legion.notify import NotifyClient, NotifyWorker
 from caesar.legion.registry import WorkerRegistry
 from caesar.legion.semantic_recall import SemanticRecallWorker
 from caesar.legion.web_search import WebSearchClient, WebSearchWorker
@@ -209,6 +210,26 @@ def _build_inprocess_worker(
             client,
             default_limit=settings.tools.web_search.result_limit,
             max_limit=settings.tools.web_search.max_result_limit,
+        )
+    if name == "notify":
+        if not settings.tools.notify.topic:
+            raise ValueError(
+                "notify worker requires CAESAR_TOOLS__NOTIFY__TOPIC",
+            )
+        notify_client = NotifyClient(
+            base_url=settings.tools.notify.base_url,
+            topic=settings.tools.notify.topic,
+            token=(
+                settings.tools.notify.token.get_secret_value()
+                if settings.tools.notify.token is not None
+                else None
+            ),
+            timeout_seconds=settings.tools.notify.timeout_seconds,
+        )
+        return NotifyWorker(
+            bus,
+            notify_client,
+            default_priority=settings.tools.notify.default_priority,
         )
     if name == "calendar_read":
         if settings.tools.calendar.password is None:

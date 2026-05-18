@@ -35,6 +35,7 @@ from caesar.ha.client import HAClient
 from caesar.ha.models import ServiceCall
 from caesar.legion.calculator import CAPABILITY as CALCULATOR_CAPABILITY
 from caesar.legion.calendar_read import CAPABILITY as CALENDAR_READ_CAPABILITY
+from caesar.legion.notify import CAPABILITY as NOTIFY_CAPABILITY
 from caesar.legion.registry import WorkerRegistry
 from caesar.legion.web_search import CAPABILITY as WEB_SEARCH_CAPABILITY
 from caesar.llm.gateway import (
@@ -196,6 +197,34 @@ CALENDAR_READ_TOOL = ToolDefinition(
 )
 
 
+NOTIFY_TOOL = ToolDefinition(
+    name="notify",
+    description=(
+        "Send a push notification to the operator via the configured "
+        "ntfy.sh topic. Use to reach the operator's phone with a brief "
+        "title + body — proactive scheduled runs almost always end "
+        "with this; reactive runs use it sparingly. Keep the title "
+        "short (≤200 chars) and the message under a paragraph (≤4096 "
+        "chars). priority 1=low, 3=default, 5=urgent. Returns the "
+        "ntfy message id and delivery timestamp."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "title": {"type": "string", "minLength": 1, "maxLength": 200},
+            "message": {"type": "string", "minLength": 1, "maxLength": 4096},
+            "priority": {"type": "integer", "minimum": 1, "maximum": 5},
+            "tags": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 10,
+            },
+        },
+        "required": ["title", "message"],
+    },
+)
+
+
 def build_brain_graph(
     *,
     gateway: LLMGateway,
@@ -222,6 +251,8 @@ def build_brain_graph(
         tools.append(WEB_SEARCH_TOOL)
     if registry is not None and registry.find(CALENDAR_READ_CAPABILITY):
         tools.append(CALENDAR_READ_TOOL)
+    if registry is not None and registry.find(NOTIFY_CAPABILITY):
+        tools.append(NOTIFY_TOOL)
 
     async def _handle_call_service(use: ToolUse, decision_id: str) -> ToolResult:
         try:
@@ -430,6 +461,15 @@ def build_brain_graph(
                                 decision_id,
                                 tool="calendar_read",
                                 capability=CALENDAR_READ_CAPABILITY,
+                            )
+                        )
+                    elif use.name == "notify":
+                        results.append(
+                            await _handle_generic_tool(
+                                use,
+                                decision_id,
+                                tool="notify",
+                                capability=NOTIFY_CAPABILITY,
                             )
                         )
                     else:
