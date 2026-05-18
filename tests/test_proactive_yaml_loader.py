@@ -98,7 +98,10 @@ def test_load_invalid_yaml_raises(tmp_path: Path) -> None:
 
 def test_load_schedules_not_a_list_raises(tmp_path: Path) -> None:
     path = _write(tmp_path, "schedules: nope")
-    with pytest.raises(SchedulesError, match="schedules must be a list"):
+    # Top-level "schedules:" is the deprecated alias for "triggers:";
+    # the loader normalises before validation so the error message
+    # uses the canonical name.
+    with pytest.raises(SchedulesError, match="triggers must be a list"):
         load_schedules(path)
 
 

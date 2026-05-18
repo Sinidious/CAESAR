@@ -49,7 +49,7 @@ from caesar.praetor.dashboard.security_headers import dashboard_security_headers
 from caesar.praetor.middleware import request_id_middleware
 from caesar.praetor.routes import chat, devices, health
 from caesar.praetor.routes import metrics as metrics_route
-from caesar.proactive import Scheduler, load_schedules
+from caesar.proactive import HAEventDriver, Scheduler, load_triggers
 from caesar.proactive.runner import ProactiveRunner
 from caesar.tracing import setup_tracing, shutdown_tracing
 
@@ -337,8 +337,21 @@ def create_app(
         if semantic_indexer is not None:
             semantic_indexer.start_background()
         scheduler: Scheduler | None = None
-        if settings.proactive.schedules_path is not None:
-            schedules = load_schedules(settings.proactive.schedules_path)
+        ha_driver: HAEventDriver | None = None
+        triggers_path = settings.proactive.resolved_path
+        if triggers_path is not None:
+            if (
+                settings.proactive.triggers_path is None
+                and settings.proactive.schedules_path is not None
+            ):
+                logger.warning(
+                    "praetor.proactive_deprecated_env",
+                    message=(
+                        "CAESAR_PROACTIVE__SCHEDULES_PATH is deprecated; "
+                        "rename to CAESAR_PROACTIVE__TRIGGERS_PATH."
+                    ),
+                )
+            triggers_config = load_triggers(triggers_path)
             runner = ProactiveRunner(
                 gateway=gateway,
                 ha=ha,
@@ -350,15 +363,27 @@ def create_app(
                 default_prompt=settings.llm.system_prompt,
             )
             scheduler = Scheduler(
-                schedules.schedules,
+                triggers_config.triggers,
                 runner.fire,
                 audit=audit,
             )
             await scheduler.start()
+            if ha is not None:
+                ha_driver = HAEventDriver(
+                    triggers_config.triggers,
+                    ha=ha,
+                    runner=runner,
+                    audit=audit,
+                )
+                if ha_driver.armed_count > 0:
+                    await ha_driver.start()
+                else:
+                    ha_driver = None
             logger.info(
                 "praetor.proactive_started",
-                schedules_path=str(settings.proactive.schedules_path),
-                armed_triggers=scheduler.armed_count,
+                triggers_path=str(triggers_path),
+                schedule_armed=scheduler.armed_count,
+                ha_armed=ha_driver.armed_count if ha_driver is not None else 0,
             )
         app.state.metrics_collector = register_app_collector(app)
         app.state.tracing_provider = setup_tracing(app, engine)
@@ -376,6 +401,8 @@ def create_app(
         try:
             yield
         finally:
+            if ha_driver is not None:
+                await ha_driver.stop()
             if scheduler is not None:
                 await scheduler.stop()
             if semantic_indexer is not None:
