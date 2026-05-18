@@ -9,6 +9,32 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from
 [Conventional Commits](https://www.conventionalcommits.org) on `main`.
 
+## [0.5.0](https://github.com/Sinidious/CAESAR/compare/v0.4.0...v0.5.0) (2026-05-18)
+
+
+### Features
+
+* **memory:** v1.8 — memory.extract worker for personal facts (ADR-0033) ([#92](https://github.com/Sinidious/CAESAR/issues/92)) ([53dca5b](https://github.com/Sinidious/CAESAR/commit/53dca5b1e8f8f4d0024f7b8c7325d8dac07c1aac))
+* **memory:** v1.8 — personal_facts schema + FactsStore (ADR-0033) ([#91](https://github.com/Sinidious/CAESAR/issues/91)) ([dd2b920](https://github.com/Sinidious/CAESAR/commit/dd2b920655bd1d25b7b14a30ee4e6002482fb307))
+* **proactive:** v1.7 — WebhookSource + dispatcher + route (ADR-0032) ([#87](https://github.com/Sinidious/CAESAR/issues/87)) ([2cdf420](https://github.com/Sinidious/CAESAR/commit/2cdf42066ab016f1588c360346cca0a0c27b1bf9))
+* **proactive:** v1.7 — wire webhook dispatcher + caesar init + e2e (ADR-0032) ([#88](https://github.com/Sinidious/CAESAR/issues/88)) ([1b333da](https://github.com/Sinidious/CAESAR/commit/1b333dabced8783b80906518bef09c085c822441))
+
+
+### Documentation
+
+* plan v1.7 — webhook triggers (ADR-0032) ([#85](https://github.com/Sinidious/CAESAR/issues/85)) ([ab85a79](https://github.com/Sinidious/CAESAR/commit/ab85a790e810bdd1e6046912013db1f81c19a42e))
+* plan v1.8 — personal facts (ADR-0033) ([#90](https://github.com/Sinidious/CAESAR/issues/90)) ([ba90463](https://github.com/Sinidious/CAESAR/commit/ba9046306192925c92b523768537fab0fb2f60a8))
+* v1.7 — webhook triggers operator guide ([#89](https://github.com/Sinidious/CAESAR/issues/89)) ([e3b2be0](https://github.com/Sinidious/CAESAR/commit/e3b2be07e3eaff6be45ff9989a3f99cd1e5f1902))
+
+
+### Build System
+
+* **deps:** update alembic requirement from &gt;=1.14.0 to &gt;=1.18.4 ([#94](https://github.com/Sinidious/CAESAR/issues/94)) ([b96068f](https://github.com/Sinidious/CAESAR/commit/b96068ff0ab668a2a21ed9cead24e2806161c490))
+* **deps:** update pydantic-settings requirement from &gt;=2.6.0 to &gt;=2.14.1 ([#101](https://github.com/Sinidious/CAESAR/issues/101)) ([1dbb0d6](https://github.com/Sinidious/CAESAR/commit/1dbb0d6ae285b26c320ccd98c33433d2690b4def))
+* **deps:** update sqlalchemy requirement from &gt;=2.0.36 to &gt;=2.0.49 ([#98](https://github.com/Sinidious/CAESAR/issues/98)) ([3e2a91f](https://github.com/Sinidious/CAESAR/commit/3e2a91fb5fa419d2131b489f17ec0e30175568fc))
+* **deps:** update typer requirement from &gt;=0.13.0 to &gt;=0.25.1 ([#95](https://github.com/Sinidious/CAESAR/issues/95)) ([cf32e67](https://github.com/Sinidious/CAESAR/commit/cf32e67c1f77fb6cb4aba98b4ff87d52549f988b))
+* **deps:** update tzdata requirement from &gt;=2024.1 to &gt;=2026.2 ([#93](https://github.com/Sinidious/CAESAR/issues/93)) ([08fa257](https://github.com/Sinidious/CAESAR/commit/08fa257c99d83f71f0f37498fa2ef6fc2520ea01))
+
 ## [0.4.0](https://github.com/Sinidious/CAESAR/compare/v0.3.0...v0.4.0) (2026-05-18)
 
 
