@@ -283,30 +283,30 @@ drop on disconnect, but webhooks have durable delivery because the
 sender owns retry. Operators routing security-sensitive events
 (water leak, smoke alarm) can prefer webhooks.
 
-- [ ] ADR-0032: `WebhookSource` trigger variant, per-trigger bearer
+- [x] ADR-0032: `WebhookSource` trigger variant, per-trigger bearer
       token auth, fire-and-forget 202 response, body-in-prompt
       pattern, `webhook.*` audit event types, deferred-HMAC
       decision documented.
-- [ ] `WebhookSource` Pydantic model with `bearer_token: SecretStr`;
+- [x] `WebhookSource` Pydantic model with `bearer_token: SecretStr`;
       flat-form YAML disambiguator extended (`bearer_token` ⇒
       webhook variant).
-- [ ] `POST /v1/hook/{trigger_id}` FastAPI route: `Authorization:
+- [x] `POST /v1/hook/{trigger_id}` FastAPI route: `Authorization:
       Bearer` validated with `hmac.compare_digest`; 202 / 401 / 404
       / 413 / 429 contract; 64 KiB body limit at the edge.
-- [ ] `WebhookDispatcher`: per-trigger cooldown reused from v1.6;
+- [x] `WebhookDispatcher`: per-trigger cooldown reused from v1.6;
       coalesced `trigger.suppressed` rows; fire-and-forget background
       task into `ProactiveRunner`; body formatted into the user
       message as "Event body: <JSON>".
-- [ ] Lifespan wiring alongside Scheduler + HAEventDriver. Route
+- [x] Lifespan wiring alongside Scheduler + HAEventDriver. Route
       registered even with no webhook triggers armed (stable 404
       contract for debugging).
-- [ ] `caesar init` writes a disabled webhook example with a fresh
+- [x] `caesar init` writes a disabled webhook example with a fresh
       `secrets.token_urlsafe(36)` bearer token alongside the existing
       morning_brief + late_office_motion examples.
-- [ ] End-to-end test: valid bearer → 202 + brain fires; wrong
+- [x] End-to-end test: valid bearer → 202 + brain fires; wrong
       bearer → 401 + audit row; unknown trigger → 404; cooldown
       coalesces rapid repeats into `trigger.suppressed`.
-- [ ] Docs: webhook section extension to
+- [x] Docs: webhook section extension to
       [Proactive CAESAR](PROACTIVE-CAESAR.md) — bearer token model,
       sample curl/n8n invocations, body-in-prompt pattern, network
       exposure note (loopback-by-default + how to expose), worked

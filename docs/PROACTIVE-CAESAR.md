@@ -2,8 +2,8 @@
 
 By default CAESAR is reactive — it answers `/v1/chat` requests and
 dashboard messages. **Proactive mode** lets the brain *start* runs on
-its own and reach your phone via [ntfy.sh](https://ntfy.sh). There
-are two trigger sources:
+its own and reach your phone via [ntfy.sh](https://ntfy.sh). Three
+trigger sources, all living in the same `triggers.yaml`:
 
 - **Schedules** (cron-like) — wake the brain at a fixed time. The
   canonical example is a morning brief: every weekday at 7am,
@@ -12,14 +12,18 @@ are two trigger sources:
 - **HA events** (v1.6+) — wake the brain when Home Assistant fires
   an event. Motion at 11pm. Water leak. Garage door open longer
   than usual.
+- **Webhooks** (v1.7+) — wake the brain when *any external system*
+  POSTs JSON to CAESAR. n8n, IFTTT, GitHub repos, custom shell
+  scripts. Each trigger gets its own bearer token; `caesar init`
+  generates one per trigger.
 
-Both source types live in the same `triggers.yaml` file, share the
-same brain entry, and audit-log under the same `proactive-<trigger_id>-`
-decision-id prefix. The matcher is **deliberately coarse** — wake the
-brain on "motion happens", let the brain prompt decide *whether to do
+All three share the same brain entry and audit-log under the same
+`proactive-<trigger_id>-` decision-id prefix. The matcher is
+**deliberately coarse** — wake the brain on "motion happens" or
+"a POST arrived", let the brain prompt decide *whether to do
 anything about it*.
 
-ADR-0030 and ADR-0031 cover the underlying design.
+ADR-0030, ADR-0031, and ADR-0032 cover the underlying design.
 
 ## What's in scope
 
@@ -82,8 +86,8 @@ as the worker is running.
 
 ## Step 3 — Author `triggers.yaml`
 
-`caesar init` writes a starter file with two disabled examples — one
-schedule, one HA event:
+`caesar init` writes a starter file with three disabled examples —
+one per source type:
 
 ```yaml
 version: 1
@@ -114,6 +118,17 @@ triggers:
       Motion in the office at this hour is unusual. Check whether
       anyone's home (state of person.* entities) and send a one-liner
       via notify with what you see.
+
+  # Webhook source — external systems POST to /v1/hook/<trigger_id>
+  # with the bearer token. caesar init mints a fresh 48-char token.
+  - id: external_event
+    enabled: false
+    bearer_token: "<48-char-random-from-caesar-init>"
+    cooldown_seconds: 30
+    prompt: |
+      An external event arrived. Summarise what happened in 1-2
+      sentences via notify, or stay quiet ("nothing to report")
+      if it doesn't look worth flagging.
 ```
 
 ### Schedule field reference
@@ -141,6 +156,17 @@ triggers:
 | `cooldown_seconds` | no (default `None`) | After firing, suppress matching events for N seconds. Coalesced suppressions land in one `trigger.suppressed` audit row. |
 | `max_runtime_seconds` | no (default `300`, max `3600`) | Same cap as schedule triggers. |
 | `prompt` | yes | What the brain sees. |
+
+### Webhook field reference
+
+| Field | Required | Notes |
+|---|---|---|
+| `id` | yes | Same as the others. Used as the URL path: `POST /v1/hook/{id}`. |
+| `enabled` | no (default `true`) | Same. |
+| `bearer_token` | yes | ≥32 characters. `caesar init` generates a fresh 48-char token via `secrets.token_urlsafe(36)`. Stored as a `SecretStr` — never logged. |
+| `cooldown_seconds` | no (default `None`) | Same suppression semantics as HA events. Inside the cooldown window, repeat POSTs return 429 and coalesce into one `trigger.suppressed` audit row. |
+| `max_runtime_seconds` | no (default `300`, max `3600`) | Same cap as the others. |
+| `prompt` | yes | What the brain sees. The POST body is appended as `"Event body:\n<JSON-formatted or raw text>"`. |
 
 ### Flat vs nested form
 
@@ -328,6 +354,170 @@ matches:
     "alive" after a "dead", say "back online" — those are noise.
 ```
 
+## Reacting to webhooks
+
+The third source (v1.7+) lets any external system fire the brain by
+POSTing JSON. The wire shape:
+
+```
+POST /v1/hook/{trigger_id}
+  Authorization: Bearer <bearer_token from triggers.yaml>
+  Content-Type: application/json
+  <free-form JSON body>
+```
+
+Response codes:
+
+- **202 Accepted** — auth + trigger-id check passed; brain fires in
+  a background task. The HTTP response returns immediately so a slow
+  LLM run can't time out the sender.
+- **401 Unauthorized** — missing, malformed, or wrong
+  `Authorization` header. Audited as `webhook.unauthorized` —
+  **without ever logging the supplied bearer**.
+- **404 Not Found** — `trigger_id` doesn't match any armed webhook
+  trigger. Same response for "no webhook triggers configured at
+  all" so probing operators get a stable contract.
+- **413 Request Entity Too Large** — body exceeded 64 KiB. The
+  audit-log clamp (SR-008) is 16 KiB anyway; rejecting at the edge
+  keeps a wayward sender from filling Praetor's memory.
+- **429 Too Many Requests** — only when `cooldown_seconds` is set
+  and the trigger is currently in cooldown. The body is dropped;
+  suppressions coalesce into one `trigger.suppressed` row with a
+  count, flushed on the next allowed fire.
+
+### Auth: per-trigger bearer token
+
+Each webhook trigger has its own opaque bearer token. `caesar init`
+generates one per trigger using `secrets.token_urlsafe(36)` — 288
+bits of entropy, well above any realistic guessing threat. Tokens
+are stored as Pydantic `SecretStr` so they don't leak into structlog
+output or stack traces.
+
+Verification uses `hmac.compare_digest` (constant-time) so an
+attacker can't probe the token byte-by-byte via timing.
+
+**No HMAC body signing in v1.7.** Bearer over HTTPS defends the
+realistic homelab threats (random scanners, hostile peers, casual
+forgery). HMAC's marginal benefit (defends a leaked token from
+replay if the sender signed a different body) isn't worth the
+per-sender format quirks. ADR-0032 documents the deferral; v1.8 may
+add HMAC if a specific sender forces it.
+
+### Body in the prompt
+
+The body is appended to the brain's user message as:
+
+```
+<trigger.prompt>
+
+Event body:
+<body, pretty-printed if JSON, raw text otherwise>
+```
+
+JSON bodies get sorted-key, indented formatting so the prompt is
+readable. Non-JSON bodies pass through as UTF-8 text. The brain has
+the full body (up to 64 KiB) and decides what to do with it. There
+is **no JSON-path filter, no templating syntax** — the matcher
+stays coarse and the brain prompt does the work:
+
+```yaml
+prompt: |
+  A GitHub event arrived. If it isn't a PR being opened against
+  the main branch, reply "nothing to report". Otherwise summarise
+  via notify.
+```
+
+### Network exposure
+
+By default CAESAR binds to **loopback only** (SR-001). Webhooks
+from outside your box don't reach it until you expose CAESAR
+through one of:
+
+- **Tailscale Funnel** — easiest for personal use; auth is your
+  tailnet; the public URL has the bearer in the path. Set
+  `CAESAR_SERVER__HOST=0.0.0.0` and let Funnel front it.
+- **Cloudflare Tunnel** — TLS terminates at Cloudflare's edge;
+  authentication is your bearer.
+- **Reverse proxy on your LAN** — nginx / Caddy / Traefik. Add
+  rate-limiting and IP allow-lists here; CAESAR doesn't do
+  global rate-limiting itself.
+- **Direct port-forward** — works but ill-advised; no edge layer
+  to mitigate scanners.
+
+Whichever you pick, the bearer token in `triggers.yaml` is the auth
+boundary. Don't reuse one bearer across multiple senders; let
+`caesar init` mint one per trigger.
+
+### Worked examples
+
+**n8n calendar invite.** n8n posts the event JSON to CAESAR; the
+brain summarises and notifies:
+
+```yaml
+- id: n8n_calendar_invite
+  bearer_token: "wht_<48-char-random>"
+  cooldown_seconds: 30
+  prompt: |
+    A calendar invite arrived via n8n. The body has the event
+    details. Summarise time, attendees, and (if you can tell)
+    whether it looks worth flagging. Then notify with a one-liner.
+    Stay quiet if it's routine.
+```
+
+n8n setup: HTTP Request node → POST `https://caesar.example/v1/hook/n8n_calendar_invite`
+→ Add header `Authorization: Bearer wht_...` → send the event body.
+
+**GitHub PR opened.** GitHub posts the full repo event payload;
+the prompt does the filter:
+
+```yaml
+- id: github_repo_event
+  bearer_token: "wht_<48-char-random>"
+  prompt: |
+    A GitHub webhook arrived for one of my repos. If this is a PR
+    being opened against `main`, summarise the title and author
+    via notify. If it's anything else (push, issue, comment,
+    review, label), reply "nothing to report" and don't fire
+    notify.
+```
+
+GitHub's webhook UI: target URL + `Authorization: Bearer …` is
+NOT supported via the standard webhook delivery (GitHub uses HMAC
+or no auth). Use a small relay (Cloudflare Worker, n8n) that
+verifies GitHub's HMAC, then forwards to CAESAR with the bearer
+header. This is the deliberate v1.7 trade-off; HMAC support lands
+in v1.8 if anyone wires the demand.
+
+**Custom shell script.** A cron job posts a sensor reading every
+hour; CAESAR decides whether it's anomalous:
+
+```sh
+curl -sS -X POST https://caesar.example/v1/hook/sensor_reading \
+  -H "Authorization: Bearer wht_<random>" \
+  -H "Content-Type: application/json" \
+  -d '{"sensor": "garage_co", "ppm": 19, "ts": "2026-05-18T10:00:00Z"}'
+```
+
+```yaml
+- id: sensor_reading
+  bearer_token: "wht_<48-char-random>"
+  cooldown_seconds: 3600       # one alert per hour max
+  prompt: |
+    A custom sensor reading arrived. Check: is the value above the
+    sensor's safe threshold? (Garage CO above 30ppm is unsafe.)
+    If unsafe, notify URGENT. Otherwise stay quiet.
+```
+
+### Reliability vs HA events
+
+Webhook senders **own retry**. n8n, GitHub, and most homelab tools
+retry on 5xx and timeout. That makes webhooks the right source for
+**delivery-critical events** like water-leak detectors or smoke
+alarms — much better than HA events, which CAESAR drops during the
+WS reconnect window (ADR-0031 §7). If you've got both options for
+the same sensor, prefer the webhook path for the security-critical
+ones.
+
 ## How proactive runs differ from `/v1/chat`
 
 Same brain graph, same policy engine, same audit log. Only:
@@ -342,18 +532,22 @@ Same brain graph, same policy engine, same audit log. Only:
 
 ## Disabling proactivity entirely
 
-Three flavours:
+Several flavours, applied to whichever sources you care about:
 
 - **Pause everything**: comment out `CAESAR_PROACTIVE__TRIGGERS_PATH`
-  in `.env` and restart. Neither scheduler nor HA driver constructs.
+  in `.env` and restart. None of the drivers construct; the
+  `/v1/hook/*` route still answers 404 (stable contract).
 - **Pause one trigger**: set `enabled: false` on that trigger.
   Praetor still reads the file at startup but the trigger isn't armed.
 - **Pause only HA triggers**: leave HA unconfigured (omit
   `CAESAR_HA__URL` / `CAESAR_HA__TOKEN`). The HA driver isn't
-  constructed without an HA bridge; schedules keep working.
+  constructed without an HA bridge; schedules and webhooks keep working.
+- **Pause only webhook triggers**: set `enabled: false` on all
+  webhook triggers. The route stays mounted but every POST returns
+  404 + `webhook.unknown_trigger`.
 
-There's no live "stop the driver" endpoint in v1.6 — edit the file
-and restart. v1.7 may add hot-reload if the demand appears.
+There's no live "stop the driver" endpoint — edit the file and
+restart. Hot-reload may land in a future release if demand appears.
 
 ## Migrating from v1.5
 
@@ -380,6 +574,11 @@ fallback — by then you should be on the new names.
 |---|---|
 | No `trigger.scheduled` / `trigger.subscribed` rows at startup | `CAESAR_PROACTIVE__TRIGGERS_PATH` unset, or every trigger has `enabled: false`. |
 | HA triggers loaded but never fire | HA bridge not configured (`CAESAR_HA__URL` / `CAESAR_HA__TOKEN` missing). Check for `ha.subscription.opened` audit rows; absence means the driver wasn't constructed. |
+| Webhook POSTs all get 404 | Either trigger_id is wrong in the URL, or the webhook trigger has `enabled: false`, or `CAESAR_PROACTIVE__TRIGGERS_PATH` isn't set. Check for `trigger.subscribed` rows with `source_kind: webhook` at startup. |
+| Webhook POSTs get 401 | Wrong or missing `Authorization: Bearer …` header. Check `webhook.unauthorized` audit rows (these never carry the supplied token). |
+| Webhook POSTs get 413 | Body exceeded 64 KiB. Trim the payload at the sender or split into multiple events. |
+| Webhook POSTs get 429 | The trigger is in `cooldown_seconds` after a recent fire. Either raise the cooldown to suppress less, lower to suppress more, or remove it. |
+| Webhook fires but reaches no one externally | `notify` topic not configured, or operator isn't subscribed in the ntfy app. Test by inspecting `notify.called` audit rows. |
 | Trigger fires but brain doesn't notify | `notify` worker not running (check `CAESAR_LEGION__INPROCESS_WORKERS`) or `notify` missing from `allowed_tools`. |
 | `trigger.error` with "ntfy returned HTTP 4xx" | `CAESAR_TOOLS__NOTIFY__TOPIC` wrong, or self-hosted server requires a token. |
 | Notifications arrive but with no body | The LLM emitted an empty message. Tighten the prompt — "Summarise X in 2-3 sentences; if there's nothing to say, reply 'nothing to report'." |
