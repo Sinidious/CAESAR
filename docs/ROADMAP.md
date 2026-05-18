@@ -236,35 +236,36 @@ entity_id + to + time_window). Multi-condition logic lives in the
 prompt, not in YAML — because the brain has full state access and
 can reason in ways an automation rule can't.
 
-- [ ] ADR-0031: HASource trigger variant, simple-matcher grammar,
+- [x] ADR-0031: HASource trigger variant, simple-matcher grammar,
       single-WS-subscription posture, per-trigger cooldown, rename
       `schedules.yaml` → `triggers.yaml` with one-release deprecation,
       new `trigger.subscribed` / `trigger.suppressed` /
       `ha.subscription.*` audit event types.
-- [ ] HA WS event subscription extension: one shared subscription per
+- [x] HA WS event subscription extension: one shared subscription per
       Praetor instance, exponential-backoff reconnect with jitter,
       drop-on-disconnect replay policy (documented).
-- [ ] HASource Pydantic model + matcher: exact `event_type` match;
+- [x] HASource Pydantic model + matcher: exact `event_type` match;
       optional `entity_id` + `to` constraints (state_changed only);
       optional minute-resolution `time_window` (cross-midnight ok)
       in the trigger's IANA timezone.
-- [ ] Per-trigger `cooldown_seconds`. Default None = fire every match.
+- [x] Per-trigger `cooldown_seconds`. Default None = fire every match.
       Cooldown suppressions coalesce into one `trigger.suppressed`
       audit row with a count.
-- [ ] HAEventDriver: subscribes once, demultiplexes incoming events
+- [x] HAEventDriver: subscribes once, demultiplexes incoming events
       to per-trigger matchers, hands matches to ProactiveRunner.
       Reuses the v1.5 brain entry unchanged.
-- [ ] `triggers.yaml` filename + `schedules.yaml` deprecation alias.
+- [x] `triggers.yaml` filename + `schedules.yaml` deprecation alias.
       `caesar init` writes `triggers.yaml` with a disabled-by-default
       HA-event example alongside the existing morning_brief.
-- [ ] End-to-end test: fake HA WS emits scripted state_changed events,
+- [x] End-to-end test: fake HA WS emits scripted state_changed events,
       matcher fires brain, cooldown suppresses follow-up events,
       audit-log carries `trigger.subscribed` + `trigger.fired` +
       `trigger.suppressed` + `trigger.completed`.
-- [ ] Docs: "HA event triggers" page (or extension to Proactive
-      CAESAR) covering matcher grammar with examples,
-      single-condition-in-YAML-multi-condition-in-prompt pattern,
-      cooldown semantics, the replay-on-reconnect gap, how to disable.
+- [x] Docs: HA event triggers extension to
+      [Proactive CAESAR](PROACTIVE-CAESAR.md) — matcher grammar
+      with worked examples, the "matcher coarse, prompt smart"
+      pattern, cooldown semantics, replay-on-reconnect gap, and
+      the v1.5→v1.6 migration table.
 
 ## Out of scope (for now)
 
