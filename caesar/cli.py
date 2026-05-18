@@ -9,6 +9,7 @@ the system lands:
     caesar db backup         # hot-safe SQLite snapshot
     caesar db restore        # replace the live DB with a snapshot
     caesar legion new-worker # mint an NKEY for a new Legion worker
+    caesar init              # generate a starter config on a fresh box
 """
 
 from __future__ import annotations
@@ -193,6 +194,38 @@ def legion_new_worker(
 
     identity = generate_worker_identity(name=name)
     typer.echo(identity.format_for_operator())
+
+
+@app.command("init")
+def init(
+    target: Annotated[
+        Path,
+        typer.Option(
+            "--dir",
+            help="Where to write the config. Defaults to the current directory.",
+        ),
+    ] = Path("."),
+    force: Annotated[
+        bool,
+        typer.Option(help="Overwrite an existing .env / policy.yaml / praetor.nkey."),
+    ] = False,
+) -> None:
+    """Generate a starter CAESAR config (ADR-0029).
+
+    Writes .env, policy.yaml, praetor.nkey, and ./var/ in ``target``.
+    Refuses to overwrite existing config files unless ``--force``.
+    Operator typically runs this once on a fresh box, edits the LLM
+    API key in .env, then `caesar praetor migrate && caesar praetor
+    serve`.
+    """
+
+    from caesar.cli_init import format_summary, init_workspace
+
+    try:
+        plan = init_workspace(target, force=force)
+    except FileExistsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(format_summary(plan))
 
 
 if __name__ == "__main__":  # pragma: no cover
