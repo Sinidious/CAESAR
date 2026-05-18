@@ -181,6 +181,44 @@ the design.
       `caesar init` → `docker compose up` → "open the dashboard"
       end-to-end.
 
+## v1.5 — Proactivity
+
+**Question:** Can CAESAR do something without me asking?
+
+Through v1.4 every brain run is operator-initiated. v1.5 lets CAESAR
+*start* runs on its own — first via scheduled triggers, then by
+reaching the operator's phone through ntfy.sh. The shape generalises
+to HA-event and webhook triggers later (v1.6+), but v1.5 ships the
+end-to-end proof with the simplest source. ADR-0030 covers the
+design.
+
+- [ ] ADR-0030: proactive triggers (Trigger shape + ScheduleSource),
+      `schedules.yaml` grammar, ntfy.sh notify sink as a Legion tool,
+      `trigger.*` audit-log event types, proactive-run policy
+      semantics, single-instance scheduler decision.
+- [ ] Scheduler subsystem: asyncio task per Praetor instance, reads
+      `schedules.yaml`, fires triggers into the brain graph via
+      `praetor.proactive.fire(...)` under `asyncio.timeout`. Uses
+      croniter for cron-expr semantics; no APScheduler.
+- [ ] `notify` Legion worker backed by ntfy.sh: title + message +
+      priority + tags input shape, audit-logged like every other
+      tool, policy-gated under `allowed_tools`. Default settings
+      target the public ntfy.sh server; self-hosted documented.
+- [ ] Proactive-run brain entry point: same graph as `/v1/chat`,
+      with the safety preamble carrying `proactive=true` to bias
+      toward summarise+notify over act-on-the-house.
+- [ ] `caesar init` writes a `schedules.yaml` with a
+      disabled-by-default "morning_brief" example; adds `notify` to
+      the default `allowed_tools` so the brain can use it once an
+      operator enables a schedule.
+- [ ] End-to-end test: fake cron tick fires, brain runs against an
+      LLM fake that emits a `notify` tool call, mock ntfy sink
+      receives the POST, audit log carries `trigger.fired` +
+      `notify.called` + `trigger.completed`.
+- [ ] Docs: "Proactive CAESAR" page covering `schedules.yaml`
+      grammar, ntfy.sh setup (free server vs self-host), policy
+      entries, how to disable proactivity entirely.
+
 ## Out of scope (for now)
 
 - Mobile native apps (the dashboard will be installable PWA first).

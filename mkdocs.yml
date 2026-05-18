@@ -111,6 +111,7 @@ nav:
       - "0027 — NATS auth and multi-host Legion": adr/0027-nats-auth-multihost-legion.md
       - "0028 — Tools beyond HA": adr/0028-tools-beyond-ha.md
       - "0029 — Docker distribution + `caesar init`": adr/0029-docker-distribution-and-init.md
+      - "0030 — Proactivity: schedules + ntfy.sh": adr/0030-proactivity-schedules-and-ntfy.md
 
 validation:
   omitted_files: warn
