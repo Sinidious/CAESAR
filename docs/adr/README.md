@@ -58,3 +58,4 @@ Small fixes, refactors, tests, and doc-only changes do not need an ADR.
 | 0030 | [Proactivity: scheduled triggers and ntfy.sh notifications](0030-proactivity-schedules-and-ntfy.md) | Accepted |
 | 0031 | [HA event triggers: subscribe, match, fire the brain](0031-ha-event-triggers.md) | Accepted |
 | 0032 | [Webhook triggers: third Trigger source variant](0032-webhook-triggers.md) | Accepted |
+| 0033 | [Personal facts: making CAESAR remember what you told it](0033-personal-facts.md) | Accepted |

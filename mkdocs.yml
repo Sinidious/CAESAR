@@ -115,6 +115,7 @@ nav:
       - "0030 — Proactivity: schedules + ntfy.sh": adr/0030-proactivity-schedules-and-ntfy.md
       - "0031 — HA event triggers": adr/0031-ha-event-triggers.md
       - "0032 — Webhook triggers": adr/0032-webhook-triggers.md
+      - "0033 — Personal facts": adr/0033-personal-facts.md
 
 validation:
   omitted_files: warn
