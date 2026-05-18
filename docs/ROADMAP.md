@@ -312,6 +312,53 @@ sender owns retry. Operators routing security-sensitive events
       exposure note (loopback-by-default + how to expose), worked
       examples.
 
+## v1.8 — Memory: remember what I told you (facts)
+
+**Question:** If I told CAESAR a fact last week, does it remember
+in today's chat without me reminding it?
+
+Through v1.7 CAESAR has technical memory (audit log, semantic
+recall) but no operator-visible memory. The brain doesn't fetch
+context automatically and even when it does, recalled chat blobs
+don't translate into "you told me your dog's name is Beans".
+
+v1.8 ships a **personal-facts layer**: a background
+`memory.extract` Legion worker reads recent `chat.completed` rows,
+asks an LLM what facts the operator revealed, stores `{key, value,
+confidence}` rows in a dedicated `personal_facts` table, and the
+brain auto-injects relevant facts into the next chat's system
+prompt. ADR-0033 covers the design.
+
+v1.9 is the planned follow-up — episode summarisation, better
+semantic recall integration, and decay/importance ranking that
+cross-cuts both facts and episodes.
+
+- [ ] ADR-0033: personal-facts schema, `memory.extract` worker
+      shape, retrieval auto-inject, dashboard surface, natural-
+      language template registry, privacy bounds.
+- [ ] Alembic migration: `personal_facts` (id, key UNIQUE, value,
+      confidence, first_seen_at, last_confirmed_at, source_audit_id)
+      + `memory_extract_cursor` (single row). `FactsStore` class for
+      CRUD with audit-row side-effects.
+- [ ] `memory.extract` Legion worker: polls `chat.completed` rows
+      since cursor; one LLM call per row via task-routed gateway
+      (`task="memory_extract"`); writes facts with dedup-by-key
+      semantics; audit rows for added / updated / confirmed.
+- [ ] Retrieval + auto-inject: `/v1/chat` and the ProactiveRunner
+      load current facts at the start of each run; system prompt
+      grows a "What you've told me:" block rendered via a small
+      template registry; capped at 30 facts / 2048 chars; toggle
+      via `CAESAR_MEMORY__FACTS__ENABLED`.
+- [ ] Dashboard `/dashboard/facts` page: list current facts with
+      edit / delete / confidence display / source-audit link.
+      Edits emit `memory.fact.user_edited` audit rows.
+- [ ] End-to-end test: chat 1 tells CAESAR a fact; extractor runs;
+      chat 2 (in a new session) verifies the brain has the fact via
+      the system-prompt inject (assert via fake-gateway capture).
+- [ ] Docs: new "Memory" page covering what gets extracted, when,
+      how to inspect, how to correct, how to disable, and what
+      *doesn't* land in facts.
+
 ## Out of scope (for now)
 
 - Mobile native apps (the dashboard will be installable PWA first).
