@@ -19,6 +19,8 @@ Pre-alpha. Don't deploy this on anything you care about yet.
 - [Configuration](CONFIGURATION.md) — every environment variable.
 - [Run a worker on another box](RUN-A-WORKER.md) — cross-host Legion
   setup using NATS NKEY auth.
+- [Add your own tool](ADD-YOUR-OWN-TOOL.md) — write a Legion worker
+  that the brain can call: capability, policy entry, tests.
 - [Picking a model](PICKING-A-MODEL.md) — Anthropic, OpenAI, or local
   Ollama, and how to mix-and-match per task.
 - [ADR index](adr/README.md) — every architecture decision so far.

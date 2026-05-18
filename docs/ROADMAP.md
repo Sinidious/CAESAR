@@ -136,19 +136,18 @@ evaluates any tool call by id + input — not just HA service calls.
 Existing HA policy keeps working unchanged because `call_service`
 becomes one tool id among many.
 
-- [ ] ADR-0028: tool worker shape + Policy Engine generalisation
+- [x] ADR-0028: tool worker shape + Policy Engine generalisation
       + per-tool YAML grammar.
-- [ ] Policy generalisation: `evaluate(call)` accepts a uniform
+- [x] Policy generalisation: `evaluate(call)` accepts a uniform
       `ToolCall` shape; existing `ServiceCall` becomes a subtype;
       audit row carries the tool id.
-- [ ] Calculator worker: pure-Python, no network, no creds.
+- [x] Calculator worker: pure-Python, no network, no creds.
       Smallest possible end-to-end exercise of the new tool path.
-- [ ] Web-search worker: network call, requires a credentialed
-      backend (SearXNG self-hosted *or* a Brave / Tavily API key).
-      Policy-gated by allowed-domains list.
-- [ ] Calendar-read worker: CalDAV against a homelab calendar.
-- [ ] Docs: "Add your own tool" page covering the worker SDK
-      shape, policy grammar, audit-row naming conventions.
+- [x] Web-search worker: network call against a self-hosted
+      SearXNG instance. Policy-gated by `allowed_tools` with an
+      optional `domain_allowlist`.
+- [x] Calendar-read worker: CalDAV against a homelab calendar.
+- [x] Docs: ["Add your own tool"](ADD-YOUR-OWN-TOOL.md) page.
 
 ## Out of scope (for now)
 
