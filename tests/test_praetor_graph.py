@@ -972,9 +972,7 @@ async def test_notify_tool_registered_when_capability_present(
     assert any(t.name == "notify" for t in tools)
 
 
-async def test_notify_dispatch_success_path(
-    fake_gateway: FakeGateway, engine: AsyncEngine
-) -> None:
+async def test_notify_dispatch_success_path(fake_gateway: FakeGateway, engine: AsyncEngine) -> None:
     """The brain dispatches notify via _handle_generic_tool, the ntfy
     delivery id comes back to the LLM, and the call is audit-logged."""
 

@@ -116,9 +116,7 @@ class NotifyClient:
         except httpx.HTTPError as exc:
             raise NotifyError(f"ntfy request failed: {exc}") from exc
         if resp.status_code >= 400:
-            raise NotifyError(
-                f"ntfy returned HTTP {resp.status_code}: {resp.text[:200]}"
-            )
+            raise NotifyError(f"ntfy returned HTTP {resp.status_code}: {resp.text[:200]}")
         try:
             data = resp.json()
         except ValueError as exc:
@@ -180,13 +178,9 @@ class NotifyWorker(Worker):
             try:
                 priority = int(raw_priority)
             except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    f"'priority' must be an integer, got {raw_priority!r}"
-                ) from exc
+                raise ValueError(f"'priority' must be an integer, got {raw_priority!r}") from exc
         if not MIN_PRIORITY <= priority <= MAX_PRIORITY:
-            raise ValueError(
-                f"'priority' must be between {MIN_PRIORITY} and {MAX_PRIORITY}"
-            )
+            raise ValueError(f"'priority' must be between {MIN_PRIORITY} and {MAX_PRIORITY}")
 
         tags_raw = task.payload.get("tags", [])
         if not isinstance(tags_raw, list):
