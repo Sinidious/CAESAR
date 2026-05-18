@@ -1,15 +1,14 @@
-"""Pydantic shapes for proactive triggers (ADR-0030, ADR-0031).
+"""Pydantic shapes for proactive triggers (ADR-0030, ADR-0031, ADR-0032).
 
-v1.5 shipped :class:`ScheduleSource` as the first trigger source.
-v1.6 adds :class:`HASource` as the second variant, plus a small
-matcher (:func:`matches_ha_event`) that decides whether a given HA
-event qualifies as a match for a HASource trigger.
+- v1.5: :class:`ScheduleSource` (cron-driven).
+- v1.6: :class:`HASource` (Home Assistant WS events), plus
+  :func:`matches_ha_event`.
+- v1.7: :class:`WebhookSource` (HTTP POST with per-trigger bearer auth).
 
-The matcher is intentionally coarse (ADR-0031): exact ``event_type``
-match, optional ``entity_id`` / ``to`` constraints on
-``state_changed`` events, optional minute-resolution
-``time_window``. Multi-condition logic belongs in the brain prompt
-where it has full state access, not in YAML.
+The matcher is intentionally coarse (ADR-0031, carried into ADR-0032):
+the trigger says "wake the brain when X happens"; the brain prompt
+decides what to do. No JSON-path filters in YAML, no boolean
+combinators — the LLM has full context and can reason about it.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import croniter
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 
 TRIGGER_ID_PATTERN = re.compile(r"^[a-z0-9_]+$")
 HA_EVENT_TYPE_PATTERN = re.compile(r"^[a-z0-9_]+$")
@@ -124,20 +123,47 @@ class HASource(BaseModel):
         return self
 
 
-# Discriminated union of all source variants. v1.7 may add WebhookSource.
+MIN_WEBHOOK_TOKEN_CHARS = 32
+
+
+class WebhookSource(BaseModel):
+    """HTTP-webhook-driven trigger source (ADR-0032).
+
+    Operator POSTs JSON to ``/v1/hook/{trigger_id}`` with
+    ``Authorization: Bearer <token>``. The token is stored here as a
+    :class:`SecretStr` so it doesn't leak into ``__repr__`` /
+    structlog dumps.
+    """
+
+    kind: Literal["webhook"] = "webhook"
+    bearer_token: SecretStr
+
+    @field_validator("bearer_token")
+    @classmethod
+    def _validate_bearer_token(cls, value: SecretStr) -> SecretStr:
+        token = value.get_secret_value()
+        if len(token) < MIN_WEBHOOK_TOKEN_CHARS:
+            raise ValueError(
+                f"bearer_token must be at least {MIN_WEBHOOK_TOKEN_CHARS} characters; "
+                f"`caesar init` generates fresh 48-char tokens.",
+            )
+        return value
+
+
+# Discriminated union of all source variants.
 TriggerSource = Annotated[
-    ScheduleSource | HASource,
+    ScheduleSource | HASource | WebhookSource,
     Field(discriminator="kind"),
 ]
 
 
 class Trigger(BaseModel):
-    """One proactive trigger as declared in ``schedules.yaml`` /
-    ``triggers.yaml``.
+    """One proactive trigger as declared in ``triggers.yaml``.
 
     ``source`` discriminates the firing mechanism (cron schedule vs
-    HA event). ``cooldown_seconds`` applies to the trigger as a whole
-    so it covers future webhook sources without re-plumbing.
+    HA event vs HTTP webhook). ``cooldown_seconds`` applies to the
+    trigger as a whole so every source type shares one suppression
+    semantics.
     """
 
     id: str

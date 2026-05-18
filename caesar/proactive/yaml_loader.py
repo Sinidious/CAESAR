@@ -49,6 +49,7 @@ SchedulesError = TriggersError
 
 _SCHEDULE_FIELDS = ("cron",)
 _HA_EVENT_FIELDS = ("event_type", "entity_id", "to", "time_window")
+_WEBHOOK_FIELDS = ("bearer_token",)
 
 
 class TriggersConfig(BaseModel):
@@ -131,15 +132,21 @@ def _build_source_from_flat(entry: dict[str, Any]) -> dict[str, Any]:
 
     has_schedule_field = any(key in entry for key in _SCHEDULE_FIELDS)
     has_ha_event_field = any(key in entry for key in _HA_EVENT_FIELDS)
-    if has_schedule_field and has_ha_event_field:
+    has_webhook_field = any(key in entry for key in _WEBHOOK_FIELDS)
+    present = sum((has_schedule_field, has_ha_event_field, has_webhook_field))
+    if present > 1:
         raise ValueError(
-            f"trigger entry mixes schedule fields {_SCHEDULE_FIELDS!r} with HA-event "
-            f"fields {_HA_EVENT_FIELDS!r}; pick one. (id={entry.get('id')!r})"
+            "trigger entry mixes source-kind fields; pick exactly one of "
+            f"{_SCHEDULE_FIELDS!r} (schedule), {_HA_EVENT_FIELDS!r} (ha_event), "
+            f"or {_WEBHOOK_FIELDS!r} (webhook). (id={entry.get('id')!r})"
         )
 
     if has_schedule_field:
         kind = "schedule"
         fields: tuple[str, ...] = _SCHEDULE_FIELDS
+    elif has_webhook_field:
+        kind = "webhook"
+        fields = _WEBHOOK_FIELDS
     else:
         # Default to ha_event when only HA fields appear, OR when neither
         # set is present (rare; the Pydantic discriminator will then

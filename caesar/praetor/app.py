@@ -47,7 +47,7 @@ from caesar.praetor.dashboard.rate_limit import LoginRateLimiter
 from caesar.praetor.dashboard.routes import STATIC_DIR as DASHBOARD_STATIC_DIR
 from caesar.praetor.dashboard.security_headers import dashboard_security_headers_middleware
 from caesar.praetor.middleware import request_id_middleware
-from caesar.praetor.routes import chat, devices, health
+from caesar.praetor.routes import chat, devices, health, webhook
 from caesar.praetor.routes import metrics as metrics_route
 from caesar.proactive import HAEventDriver, Scheduler, load_triggers
 from caesar.proactive.runner import ProactiveRunner
@@ -442,6 +442,10 @@ def create_app(
     app.state.audit_bus = audit_bus
     app.state.settings_store = settings_store
     app.state.login_rate_limiter = LoginRateLimiter()
+    # ADR-0032: webhook dispatcher is populated by the lifespan when
+    # triggers.yaml has at least one armed webhook trigger. Default
+    # None gives the /v1/hook/* route a stable 404 contract.
+    app.state.webhook_dispatcher = None
 
     app.middleware("http")(request_id_middleware)
     app.middleware("http")(dashboard_security_headers_middleware)
@@ -449,6 +453,7 @@ def create_app(
     app.include_router(chat.router)
     app.include_router(devices.router)
     app.include_router(metrics_route.router)
+    app.include_router(webhook.router)
     app.state.metrics_collector = None
     if settings.dashboard.token is not None:
         app.include_router(build_dashboard_router())

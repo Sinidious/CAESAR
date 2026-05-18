@@ -1,21 +1,25 @@
-"""Proactive triggers (ADR-0030, ADR-0031).
+"""Proactive triggers (ADR-0030, ADR-0031, ADR-0032).
 
 Subsystem that fires declarative triggers into the brain graph without
 an operator-facing request kicking them off.
 
-v1.5 shipped the scheduled (cron-like) source. v1.6 ships the HA-event
-source. v1.7+ may add webhook and other sources; the
-:data:`TriggerSource` discriminated union grows additively.
+- v1.5 shipped the scheduled (cron-like) source.
+- v1.6 shipped the HA-event source.
+- v1.7 ships the HTTP-webhook source.
+
+The :data:`TriggerSource` discriminated union grows additively.
 
 Public surface:
 
 - :class:`Trigger`, :class:`ScheduleSource`, :class:`HASource`,
-  :data:`TriggerSource` — the Pydantic shape declared in
-  ``triggers.yaml`` (or, deprecated, ``schedules.yaml``).
+  :class:`WebhookSource`, :data:`TriggerSource` — the Pydantic shape
+  declared in ``triggers.yaml`` (or, deprecated, ``schedules.yaml``).
 - :func:`matches_ha_event` — the v1.6 HA matcher.
 - :class:`Scheduler` — runs schedule-source triggers via cron.
 - :class:`HAEventDriver` — runs HA-event-source triggers via the
   shared :class:`ResilientHAEventStream` subscription.
+- :class:`WebhookDispatcher` — runs webhook-source triggers fed by
+  the :func:`POST /v1/hook/{trigger_id}` FastAPI route.
 - :func:`load_triggers` — read and validate ``triggers.yaml`` /
   ``schedules.yaml``.
 """
@@ -29,8 +33,10 @@ from caesar.proactive.triggers import (
     ScheduleSource,
     Trigger,
     TriggerSource,
+    WebhookSource,
     matches_ha_event,
 )
+from caesar.proactive.webhook_dispatcher import WebhookDispatcher
 from caesar.proactive.yaml_loader import (
     SchedulesConfig,
     SchedulesError,
@@ -52,6 +58,8 @@ __all__ = [
     "TriggerSource",
     "TriggersConfig",
     "TriggersError",
+    "WebhookDispatcher",
+    "WebhookSource",
     "load_schedules",
     "load_triggers",
     "matches_ha_event",
