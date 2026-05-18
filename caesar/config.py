@@ -184,8 +184,26 @@ class BusSettings(BaseModel):
     auth: BusAuthSettings = Field(default_factory=BusAuthSettings)
 
 
+class FactsExtractSettings(BaseModel):
+    """v1.8 personal-fact extractor (ADR-0033).
+
+    The background extractor polls ``chat.completed`` rows since its
+    cursor, asks an LLM what durable facts the operator revealed, and
+    writes them via :class:`caesar.memory.facts.FactsStore`.
+
+    Defaults to off: operators opt in by setting ``enabled=true``.
+    Pair with a ``memory_extract`` entry in
+    ``LLMSettings.task_routing`` (ADR-0026) to route extraction to a
+    cheap local model so it doesn't bloat the cloud bill.
+    """
+
+    enabled: bool = False
+    interval_seconds: float = 60.0
+    batch_size: int = Field(default=8, ge=1, le=128)
+
+
 class MemorySettings(BaseModel):
-    """Episodic-memory retention (ADR-0020).
+    """Episodic-memory retention (ADR-0020) + facts extraction (ADR-0033).
 
     The sweep deletes ``audit_log`` rows older than ``retention_days``;
     it runs at startup and then every ``sweep_interval_seconds``.
@@ -194,11 +212,15 @@ class MemorySettings(BaseModel):
     payload to at most N characters at write time (SR-008). Long
     strings get a ``[truncated, N chars total]`` marker. Set to 0 to
     disable.
+
+    ``facts_extract`` controls the v1.8 personal-fact extractor — see
+    :class:`FactsExtractSettings`.
     """
 
     retention_days: int = 90
     sweep_interval_seconds: float = 3600.0
     audit_max_string_chars: int = 16384
+    facts_extract: FactsExtractSettings = Field(default_factory=FactsExtractSettings)
 
 
 class DashboardSettings(BaseModel):
