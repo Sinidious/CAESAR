@@ -58,7 +58,7 @@ jobs:
           python -m build
 
       - name: Generate build-provenance attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: "dist/*"
 
@@ -126,7 +126,7 @@ jobs:
           provenance: false  # we attest via attest-build-provenance below
 
       - name: Generate Sigstore image attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ghcr.io/sinidious/caesar
           subject-digest: ${{ steps.build.outputs.digest }}
