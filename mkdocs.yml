@@ -69,6 +69,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Quickstart: QUICKSTART.md
   - Architecture: ARCHITECTURE.md
   - Roadmap: ROADMAP.md
   - Operations: OPERATIONS.md
