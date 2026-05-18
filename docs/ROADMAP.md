@@ -267,6 +267,51 @@ can reason in ways an automation rule can't.
       pattern, cooldown semantics, replay-on-reconnect gap, and
       the v1.5→v1.6 migration table.
 
+## v1.7 — Webhook triggers
+
+**Question:** Can external systems wake the brain by POSTing JSON?
+
+v1.5 shipped scheduled triggers. v1.6 shipped HA events. v1.7 ships
+the third Trigger source variant — HTTP webhooks — so any external
+system (n8n, IFTTT, GitHub, calendar services, custom shell scripts)
+can fire the brain. Same Trigger discriminated union, same
+ProactiveRunner, same audit log; a new `WebhookSource` plus one
+FastAPI route. ADR-0032 covers the design.
+
+This also closes ADR-0031 §7's noted reliability gap: HA WS events
+drop on disconnect, but webhooks have durable delivery because the
+sender owns retry. Operators routing security-sensitive events
+(water leak, smoke alarm) can prefer webhooks.
+
+- [ ] ADR-0032: `WebhookSource` trigger variant, per-trigger bearer
+      token auth, fire-and-forget 202 response, body-in-prompt
+      pattern, `webhook.*` audit event types, deferred-HMAC
+      decision documented.
+- [ ] `WebhookSource` Pydantic model with `bearer_token: SecretStr`;
+      flat-form YAML disambiguator extended (`bearer_token` ⇒
+      webhook variant).
+- [ ] `POST /v1/hook/{trigger_id}` FastAPI route: `Authorization:
+      Bearer` validated with `hmac.compare_digest`; 202 / 401 / 404
+      / 413 / 429 contract; 64 KiB body limit at the edge.
+- [ ] `WebhookDispatcher`: per-trigger cooldown reused from v1.6;
+      coalesced `trigger.suppressed` rows; fire-and-forget background
+      task into `ProactiveRunner`; body formatted into the user
+      message as "Event body: <JSON>".
+- [ ] Lifespan wiring alongside Scheduler + HAEventDriver. Route
+      registered even with no webhook triggers armed (stable 404
+      contract for debugging).
+- [ ] `caesar init` writes a disabled webhook example with a fresh
+      `secrets.token_urlsafe(36)` bearer token alongside the existing
+      morning_brief + late_office_motion examples.
+- [ ] End-to-end test: valid bearer → 202 + brain fires; wrong
+      bearer → 401 + audit row; unknown trigger → 404; cooldown
+      coalesces rapid repeats into `trigger.suppressed`.
+- [ ] Docs: webhook section extension to
+      [Proactive CAESAR](PROACTIVE-CAESAR.md) — bearer token model,
+      sample curl/n8n invocations, body-in-prompt pattern, network
+      exposure note (loopback-by-default + how to expose), worked
+      examples.
+
 ## Out of scope (for now)
 
 - Mobile native apps (the dashboard will be installable PWA first).
