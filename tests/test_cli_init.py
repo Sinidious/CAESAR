@@ -25,7 +25,7 @@ from caesar.cli_init import (
     ENV_FILENAME,
     NKEY_FILENAME,
     POLICY_FILENAME,
-    SCHEDULES_FILENAME,
+    TRIGGERS_FILENAME,
     VAR_DIRNAME,
     InitPlan,
     compute_plan,
@@ -41,13 +41,15 @@ def test_compute_plan_paths_are_under_target(tmp_path: Path) -> None:
     assert plan.env_path == tmp_path / ENV_FILENAME
     assert plan.policy_path == tmp_path / POLICY_FILENAME
     assert plan.nkey_path == tmp_path / NKEY_FILENAME
-    assert plan.schedules_path == tmp_path / SCHEDULES_FILENAME
+    assert plan.triggers_path == tmp_path / TRIGGERS_FILENAME
+    # Deprecated alias still works for one release (ADR-0031 §5).
+    assert plan.schedules_path == plan.triggers_path
     assert plan.var_dir == tmp_path / VAR_DIRNAME
     assert plan.files == [
         plan.env_path,
         plan.policy_path,
         plan.nkey_path,
-        plan.schedules_path,
+        plan.triggers_path,
     ]
 
 
@@ -111,26 +113,27 @@ def test_init_env_anthropic_key_is_an_empty_placeholder(tmp_path: Path) -> None:
 # --- policy.yaml shape ------------------------------------------------------
 
 
-def test_init_env_points_proactive_at_local_schedules_file(tmp_path: Path) -> None:
-    """ADR-0030: the generated .env tells Praetor where schedules.yaml is."""
+def test_init_env_points_proactive_at_local_triggers_file(tmp_path: Path) -> None:
+    """ADR-0031: the generated .env uses the new triggers_path env var."""
 
     env = init_workspace(tmp_path).env_path.read_text(encoding="utf-8")
-    assert f"CAESAR_PROACTIVE__SCHEDULES_PATH=./{SCHEDULES_FILENAME}" in env
+    assert f"CAESAR_PROACTIVE__TRIGGERS_PATH=./{TRIGGERS_FILENAME}" in env
 
 
-def test_init_schedules_yaml_ships_disabled_morning_brief(tmp_path: Path) -> None:
-    """The example schedule is disabled by default so operators who skip
+def test_init_triggers_yaml_ships_disabled_examples(tmp_path: Path) -> None:
+    """The example triggers are disabled by default so operators who skip
     the file (or skip editing it) see no surprise notifications."""
 
     plan = init_workspace(tmp_path)
-    schedules = yaml.safe_load(plan.schedules_path.read_text(encoding="utf-8"))
-    assert schedules["version"] == 1
-    rows = schedules.get("schedules") or []
-    assert len(rows) >= 1
+    config = yaml.safe_load(plan.triggers_path.read_text(encoding="utf-8"))
+    assert config["version"] == 1
+    rows = config.get("triggers") or []
+    # Both the schedule and HA-event examples; both disabled.
+    assert len(rows) >= 2
     assert all(row.get("enabled") is False for row in rows)
-    # The first row is the morning_brief example.
-    assert rows[0]["id"] == "morning_brief"
-    assert "cron" in rows[0]
+    ids = [row["id"] for row in rows]
+    assert "morning_brief" in ids
+    assert "late_office_motion" in ids
 
 
 def test_init_policy_parses_and_allows_calculator_and_notify(tmp_path: Path) -> None:
@@ -212,7 +215,7 @@ def test_cli_init_runs_in_empty_dir(tmp_path: Path) -> None:
     assert (tmp_path / ENV_FILENAME).is_file()
     assert (tmp_path / POLICY_FILENAME).is_file()
     assert (tmp_path / NKEY_FILENAME).is_file()
-    assert (tmp_path / SCHEDULES_FILENAME).is_file()
+    assert (tmp_path / TRIGGERS_FILENAME).is_file()
     assert (tmp_path / VAR_DIRNAME).is_dir()
     assert "Next steps" in result.stdout
 
@@ -240,7 +243,7 @@ def test_init_plan_files_property_is_a_stable_list(tmp_path: Path) -> None:
         env_path=tmp_path / "a",
         policy_path=tmp_path / "b",
         nkey_path=tmp_path / "c",
-        schedules_path=tmp_path / "d",
+        triggers_path=tmp_path / "d",
         var_dir=tmp_path / "var",
     )
     files = plan.files

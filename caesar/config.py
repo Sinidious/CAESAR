@@ -334,15 +334,36 @@ class ToolsSettings(BaseModel):
 
 
 class ProactiveSettings(BaseModel):
-    """Proactive trigger configuration (ADR-0030).
+    """Proactive trigger configuration (ADR-0030, ADR-0031).
 
-    Off by default: when ``schedules_path`` is unset, the scheduler
-    subsystem isn't constructed and CAESAR remains reactive-only.
-    When set, Praetor loads the file at lifespan start and arms every
-    ``enabled: true`` trigger inside it.
+    Off by default: when ``triggers_path`` is unset, neither the
+    scheduler nor the HA-event driver is constructed and CAESAR
+    remains reactive-only. When set, Praetor loads the file at
+    lifespan start and arms every ``enabled: true`` trigger inside it.
+
+    v1.6 renames the file from ``schedules.yaml`` to ``triggers.yaml``
+    (ADR-0031 §5). ``schedules_path`` remains a deprecated alias for
+    one release — operators migrating from v1.5 keep working, but a
+    warning lands in the log on startup.
     """
 
+    triggers_path: Path | None = None
+    # Deprecated alias for ``triggers_path``. Kept for one release per
+    # ADR-0031 §5. Operators should rename ``CAESAR_PROACTIVE__SCHEDULES_PATH``
+    # to ``CAESAR_PROACTIVE__TRIGGERS_PATH``.
     schedules_path: Path | None = None
+
+    @property
+    def resolved_path(self) -> Path | None:
+        """Return whichever path the operator set, preferring the new name.
+
+        Lifespan code reads this and logs a deprecation warning when
+        only ``schedules_path`` is populated.
+        """
+
+        if self.triggers_path is not None:
+            return self.triggers_path
+        return self.schedules_path
 
 
 class CaesarSettings(BaseSettings):
