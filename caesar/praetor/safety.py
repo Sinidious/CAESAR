@@ -62,9 +62,7 @@ Behave accordingly:
 """
 
 
-def compose_system_prompt(
-    operator_prompt: str | None, *, proactive: bool = False
-) -> str:
+def compose_system_prompt(operator_prompt: str | None, *, proactive: bool = False) -> str:
     """Prepend the safety preamble to the operator's prompt.
 
     When ``proactive`` is true, an additional proactive-run preamble is

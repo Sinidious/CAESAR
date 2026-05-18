@@ -531,7 +531,7 @@ async def test_lifespan_starts_scheduler_when_schedules_path_set(
         "schedules:\n"
         "  - id: armed_test\n"
         "    enabled: true\n"
-        "    cron: \"0 7 * * *\"\n"
+        '    cron: "0 7 * * *"\n'
         "    timezone: UTC\n"
         "    prompt: brief me\n",
         encoding="utf-8",

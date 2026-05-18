@@ -224,9 +224,7 @@ async def test_runner_decision_id_is_proactive_prefixed(
     await runner.fire(_trigger())
 
     async with engine.begin() as conn:
-        rows = list(
-            await conn.execute(select(audit_log.c.event_type, audit_log.c.payload))
-        )
+        rows = list(await conn.execute(select(audit_log.c.event_type, audit_log.c.payload)))
     decision_ids = {r.payload.get("decision_id") for r in rows if "decision_id" in r.payload}
     assert decision_ids
     for did in decision_ids:
